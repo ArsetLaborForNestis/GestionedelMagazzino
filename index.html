@@ -1,0 +1,3220 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Gestione Magazzino NESTIS v0.5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .gradient-text {
+            background: linear-gradient(to right, #d45087, #f95d6a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #f95d6a;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .tab-button:not(.active):hover {
+            background-color: #e5e7eb;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* Message Box Styling */
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50; /* Green for success */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            min-width: 250px;
+            text-align: center;
+        }
+        .message-box.error {
+            background-color: #f44336; /* Red for error */
+        }
+        .message-box.show {
+            opacity: 1;
+        }
+
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            width: 600px;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-in-out;
+            position: relative;
+        }
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #aaa;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .modal-close-btn:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="messageBox" class="message-box"></div>
+
+    <header class="bg-white shadow-md py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="4xl md:text-5xl font-bold gradient-text">App Gestione Magazzino NESTIS v0.5</h1>
+            <p class="mt-2 text-lg text-gray-600">Gestisci articoli, clienti e fornitori per una visione completa.</p>
+            <p class="mt-2 text-sm text-gray-500">ID Utente: <span id="userIdDisplay" class="font-mono text-gray-700">Caricamento...</span></p>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+
+        <div class="flex justify-center mb-8 space-x-4">
+            <button id="tabProducts" class="tab-button active">Articoli</button>
+            <button id="tabCustomers" class="tab-button">Clienti</button>
+            <button id="tabSuppliers" class="tab-button">Fornitori</button>
+            <button id="tabMovements" class="tab-button">Movimenti</button>
+            <button id="tabOrderManagement" class="tab-button">Gestione Ordini</button> <!-- New Tab -->
+            <button id="tabData" class="tab-button">Dati</button>
+            <!-- <button id="tabStatistics" class="tab-button">Statistiche</button> -->
+        </div>
+
+        <div id="contentArea" class="card p-6">
+            <!-- Content will be loaded here by JavaScript -->
+            <div id="loadingIndicator" class="text-center text-gray-500 hidden">Caricamento dati...</div>
+            <div id="authMessage" class="text-center text-red-500 hidden">
+                Errore di autenticazione o caricamento. Riprova più tardi.
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-16 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2025 NESTIS. Tutti i diritti riservati.</p>
+            <p class="text-sm text-gray-400 mt-1">Sviluppato per la gestione integrata del magazzino.</p>
+        </div>
+    </footer>
+
+    <!-- Modale per la modifica dell'articolo -->
+    <div id="editProductModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeProductModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Modifica Articolo</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label for="modalProductName" class="block text-sm font-medium text-gray-700">Nome Articolo:</label>
+                    <input type="text" id="modalProductName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalProductSKU" class="block text-sm font-medium text-gray-700">SKU:</label>
+                    <input type="text" id="modalProductSKU" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2" disabled>
+                </div>
+                <div>
+                    <label for="modalProductPurchaseCost" class="block text-sm font-medium text-gray-700">Costo Acquisto (€):</label>
+                    <input type="number" id="modalProductPurchaseCost" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalProductQuantity" class="block text-sm font-medium text-gray-700">Quantità:</label>
+                    <input type="number" id="modalProductQuantity" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalListPriceB2B" class="block text-sm font-medium text-gray-700">Listino B2B (€):</label>
+                    <input type="number" id="modalListPriceB2B" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalSuggestedPriceB2C" class="block text-sm font-medium text-gray-700">Prezzo Consigliato B2C (€):</label>
+                    <input type="number" id="modalSuggestedPriceB2C" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="saveModalProductBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Salva Modifiche
+                </button>
+                <button id="cancelModalProductEditBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale per la modifica del cliente -->
+    <div id="editCustomerModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeCustomerModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Modifica Cliente</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="modalCustomerName" class="block text-sm font-medium text-gray-700">Nome Azienda:</label>
+                    <input type="text" id="modalCustomerName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalCustomerContact" class="block text-sm font-medium text-gray-700">Referente:</label>
+                    <input type="text" id="modalCustomerContact" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalCustomerEmail" class="block text-sm font-medium text-gray-700">Email:</label>
+                    <input type="email" id="modalCustomerEmail" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalCustomerPhone" class="block text-sm font-medium text-gray-700">Telefono:</label>
+                    <input type="tel" id="modalCustomerPhone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalCustomerAddress" class="block text-sm font-medium text-gray-700">Indirizzo:</label>
+                    <input type="text" id="modalCustomerAddress" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="modalCustomerDiscount" class="block text-sm font-medium text-gray-700">Percentuale Sconto Predefinita (%):</label>
+                    <input type="number" id="modalCustomerDiscount" step="0.01" value="0" min="0" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="saveModalCustomerBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Salva Modifiche
+                </button>
+                <button id="cancelModalCustomerEditBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale per Nuovo Ordine Fornitore -->
+    <div id="newPurchaseOrderModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closePurchaseOrderModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Nuovo Ordine Fornitore</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="orderSupplier" class="block text-sm font-medium text-gray-700">Fornitore:</label>
+                    <select id="orderSupplier" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Fornitore</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="orderProduct" class="block text-sm font-medium text-gray-700">Articolo:</label>
+                    <select id="orderProduct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Articolo</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="orderQuantity" class="block text-sm font-medium text-gray-700">Quantità Ordinata:</label>
+                    <input type="number" id="orderQuantity" step="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="orderUnitPrice" class="block text-sm font-medium text-gray-700">Prezzo Unitario (€):</label>
+                    <input type="number" id="orderUnitPrice" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="orderDate" class="block text-sm font-medium text-gray-700">Data Ordine:</label>
+                    <input type="date" id="orderDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="purchaseRequestedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Richiesta:</label>
+                    <input type="date" id="purchaseRequestedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="purchaseConfirmedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Confermata (Fornitore):</label>
+                    <input type="date" id="purchaseConfirmedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label for="purchaseOrderCausale" class="block text-sm font-medium text-gray-700">Causale:</label>
+                    <select id="purchaseOrderCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="savePurchaseOrderBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Crea Ordine Fornitore
+                </button>
+                <button id="cancelPurchaseOrderBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale per Nuovo Ordine Cliente -->
+    <div id="newSalesOrderModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeSalesOrderModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Nuovo Ordine Cliente</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="salesOrderCustomer" class="block text-sm font-medium text-gray-700">Cliente:</label>
+                    <select id="salesOrderCustomer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Cliente</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="salesOrderProduct" class="block text-sm font-medium text-gray-700">Articolo:</label>
+                    <select id="salesOrderProduct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Articolo</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="salesOrderQuantity" class="block text-sm font-medium text-gray-700">Quantità Ordinata:</label>
+                    <input type="number" id="salesOrderQuantity" step="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="salesOrderUnitPrice" class="block text-sm font-medium text-gray-700">Prezzo Unitario (€):</label>
+                    <input type="number" id="salesOrderUnitPrice" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="salesOrderDate" class="block text-sm font-medium text-gray-700">Data Ordine:</label>
+                    <input type="date" id="salesOrderDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="salesRequestedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Richiesta:</label>
+                    <input type="date" id="salesRequestedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="salesConfirmedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Confermata (Cliente):</label>
+                    <input type="date" id="salesConfirmedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label for="salesOrderCausale" class="block text-sm font-medium text-gray-700">Causale:</label>
+                    <select id="salesOrderCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="saveSalesOrderBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Crea Ordine Cliente
+                </button>
+                <button id="cancelSalesOrderBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale per Nuovo Reso Cliente -->
+    <div id="newCustomerReturnModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeCustomerReturnModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Nuovo Reso Cliente</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="returnCustomer" class="block text-sm font-medium text-gray-700">Cliente:</label>
+                    <select id="returnCustomer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Cliente</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="returnProduct" class="block text-sm font-medium text-gray-700">Articolo:</label>
+                    <select id="returnProduct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="">Seleziona Articolo</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="returnQuantity" class="block text-sm font-medium text-gray-700">Quantità Resa:</label>
+                    <input type="number" id="returnQuantity" step="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="returnUnitPrice" class="block text-sm font-medium text-gray-700">Prezzo Unitario Reso (€):</label>
+                    <input type="number" id="returnUnitPrice" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="returnDate" class="block text-sm font-medium text-gray-700">Data Reso:</label>
+                    <input type="date" id="returnDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div>
+                    <label for="returnCausale" class="block text-sm font-medium text-gray-700">Causale del Reso:</label>
+                    <select id="returnCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label for="originalOutgoingCausale" class="block text-sm font-medium text-gray-700">Causale Originale Uscita:</label>
+                    <select id="originalOutgoingCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="saveCustomerReturnBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Crea Reso Cliente
+                </button>
+                <button id="cancelCustomerReturnBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modale Generica per Modifica Ordine -->
+    <div id="editOrderGenericModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeOrderGenericModalBtn">&times;</button>
+            <h3 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Modifica Movimento</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tipo Movimento:</label>
+                    <p id="modalOrderTypeDisplay" class="mt-1 text-lg font-semibold"></p>
+                    <input type="hidden" id="modalOrderId">
+                    <input type="hidden" id="modalOrderType">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Riferimento:</label>
+                    <p id="modalOrderCustomerSupplier" class="mt-1 text-lg font-semibold"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Articolo:</label>
+                    <p id="modalOrderProduct" class="mt-1 text-lg font-semibold"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Quantità:</label>
+                    <p id="modalOrderQuantity" class="mt-1 text-lg font-semibold"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Prezzo Unitario:</label>
+                    <p id="modalOrderUnitPrice" class="mt-1 text-lg font-semibold"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Data Movimento:</label>
+                    <p id="modalOrderDate" class="mt-1 text-lg font-semibold"></p>
+                </div>
+                <div id="requestedDeliveryDateContainer">
+                    <label for="modalOrderRequestedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Richiesta:</label>
+                    <input type="date" id="modalOrderRequestedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div id="confirmedDeliveryDateContainer">
+                    <label for="modalOrderConfirmedDeliveryDate" class="block text-sm font-medium text-gray-700">Data Consegna Confermata:</label>
+                    <input type="date" id="modalOrderConfirmedDeliveryDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                </div>
+                <div id="statusContainer">
+                    <label for="modalOrderStatus" class="block text-sm font-medium text-gray-700">Stato Movimento:</label>
+                    <select id="modalOrderStatus" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <option value="Ordinato">Ordinato</option>
+                        <option value="Evaso Parzialmente">Evaso Parzialmente</option>
+                        <option value="Evaso Totalmente">Evaso Totalmente</option>
+                        <option value="Annullato">Annullato</option>
+                        <option value="Ricevuto">Ricevuto</option> <!-- For returns -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Cambia lo stato per aggiornare il magazzino (es. 'Evaso Totalmente' per scaricare, 'Ricevuto' per caricare).</p>
+                </div>
+                <div>
+                    <label for="modalOrderCausale" class="block text-sm font-medium text-gray-700">Causale:</label>
+                    <select id="modalOrderCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Il motivo del movimento (non influisce direttamente sul magazzino).</p>
+                </div>
+                <div id="originalOutgoingCausaleContainer" class="hidden">
+                    <label for="modalOriginalOutgoingCausale" class="block text-sm font-medium text-gray-700">Causale Originale Uscita:</label>
+                    <select id="modalOriginalOutgoingCausale" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        <!-- Options will be dynamically loaded -->
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 text-center space-x-4">
+                <button id="saveModalOrderBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Salva Modifiche Movimento
+                </button>
+                <button id="cancelModalOrderEditBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // Importa le funzioni Firebase necessarie
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, addDoc, serverTimestamp, doc, setDoc, getDoc, getDocs, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Variabili globali fornite dall'ambiente Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUserId = null;
+        let isAuthReady = false;
+        let unsubscribeProductListener = null;
+        let unsubscribeCustomerListener = null;
+        let unsubscribeSupplierListener = null;
+        let unsubscribePurchaseOrderListener = null; 
+        let unsubscribeSalesOrderListener = null; 
+        let unsubscribeCustomerReturnListener = null; // New listener for customer returns
+
+        let editingProductId = null; 
+        let editingCustomerId = null; 
+        let editingOrderId = null; // ID dell'ordine/movimento che si sta modificando
+        let editingOrderType = null; // Tipo di movimento ('purchase', 'sales', 'customerReturn')
+
+        const contentArea = document.getElementById('contentArea');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const authMessage = document.getElementById('authMessage');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const messageBox = document.getElementById('messageBox');
+        const editProductModal = document.getElementById('editProductModal');
+        const editCustomerModal = document.getElementById('editCustomerModal'); 
+        const newPurchaseOrderModal = document.getElementById('newPurchaseOrderModal');
+        const newSalesOrderModal = document.getElementById('newSalesOrderModal'); 
+        const newCustomerReturnModal = document.getElementById('newCustomerReturnModal'); // New modal for customer returns
+        const editOrderGenericModal = document.getElementById('editOrderGenericModal'); // Nuova modale generica
+
+        let allProducts = []; 
+        let allCustomers = []; 
+        let allSuppliers = []; 
+        let allPurchaseOrders = []; // Cache per gli ordini fornitore
+        let allSalesOrders = []; // Cache per gli ordini cliente
+        let allCustomerReturns = []; // Cache for customer returns
+
+        // Definizioni delle causali
+        const purchaseOrderCausali = ["Acquisto", "Rifornimento", "Ordine Speciale"]; // Example for purchase orders
+        const salesOrderCausali = ["C/Vendita", "C/Visione"]; // Outgoing causali
+        const customerReturnCausali = ["Reso da ripristino", "Reso su vendite", "Reso C/Visione", "Reso C/Vendita", "Reso Difettoso"]; // Incoming causali for returns
+
+        // Dati prodotti dal listino predefinito
+        const productsData = [
+          {
+            "name": "PLAID 150 X 180 GOOSE 60",
+            "sku": "PLAID-150-180-GOOSE-60",
+            "listinoPrice": 349.00,
+            "suggestedPublicPriceInclVAT": 849.00
+          },
+          {
+            "name": "PLAID 150 X 180 GOOSE 120",
+            "sku": "PLAID-150-180-GOOSE-120",
+            "listinoPrice": 399.00,
+            "suggestedPublicPriceInclVAT": 969.00
+          },
+          {
+            "name": "SINGOLO 155 X 220 GOOSE 60",
+            "sku": "SINGOLO-155-220-GOOSE-60",
+            "listinoPrice": 369.00,
+            "suggestedPublicPriceInclVAT": 899.00
+          },
+          {
+            "name": "SINGOLO 155 X 220 GOOSE 120",
+            "sku": "SINGOLO-155-220-GOOSE-120",
+            "listinoPrice": 429.00,
+            "suggestedPublicPriceInclVAT": 999.00
+          },
+          {
+            "name": "PIAZZA E MEZZO 200 X 220 GOOSE 60",
+            "sku": "PIAZZA-200-220-GOOSE-60",
+            "listinoPrice": 449.00,
+            "suggestedPublicPriceInclVAT": 1099.00
+          },
+          {
+            "name": "PIAZZA E MEZZO 200 X 220 GOOSE 120",
+            "sku": "PIAZZA-200-220-GOOSE-120",
+            "listinoPrice": 529.00,
+            "suggestedPublicPriceInclVAT": 1289.00
+          },
+          {
+            "name": "MATRIMONIALE 250 X 220 GOOSE 60",
+            "sku": "MATRIMONIALE-250-220-GOOSE-60",
+            "listinoPrice": 499.00,
+            "suggestedPublicPriceInclVAT": 1219.00
+          },
+          {
+            "name": "MATRIMONIALE 250 X 220 GOOSE 120",
+            "sku": "MATRIMONIALE-250-220-GOOSE-120",
+            "listinoPrice": 599.00,
+            "suggestedPublicPriceInclVAT": 1459.00
+          },
+          {
+            "name": "MATRIMONIALE DUAL NEST 250 X 220 GOOSE 60 + 120",
+            "sku": "MATRIMONIALE-250-220-GOOSE-DUAL",
+            "listinoPrice": 599.00,
+            "suggestedPublicPriceInclVAT": 1459.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE 280 X 240 GOOSE 60",
+            "sku": "MATRIMONIALE-280-240-GOOSE-60",
+            "listinoPrice": 569.00,
+            "suggestedPublicPriceInclVAT": 1389.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE 280 X 240 GOOSE 120",
+            "sku": "MATRIMONIALE-280-240-GOOSE-120",
+            "listinoPrice": 690.00,
+            "suggestedPublicPriceInclVAT": 1679.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE DUAL NEST 280 X 240 GOOSE 60 + 120",
+            "sku": "MATRIMONIALE-280-240-GOOSE-DUAL",
+            "listinoPrice": 719.00,
+            "suggestedPublicPriceInclVAT": 1749.00
+          },
+          {
+            "name": "PLAID 150 X 180 HYBRID 80",
+            "sku": "PLAID-150-180-HYBRID-80",
+            "listinoPrice": 299.00,
+            "suggestedPublicPriceInclVAT": 729.00
+          },
+          {
+            "name": "PLAID 150 X 180 HYBRID 150",
+            "sku": "PLAID-150-180-HYBRID-150",
+            "listinoPrice": 309.00,
+            "suggestedPublicPriceInclVAT": 749.00
+          },
+          {
+            "name": "SINGOLO 155 X 220 HYBRID 80",
+            "sku": "SINGOLO-155-220-HYBRID-80",
+            "listinoPrice": 309.00,
+            "suggestedPublicPriceInclVAT": 749.00
+          },
+          {
+            "name": "SINGOLO 155 X 220 HYBRID 150",
+            "sku": "SINGOLO-155-220-HYBRID-150",
+            "listinoPrice": 319.00,
+            "suggestedPublicPriceInclVAT": 769.00
+          },
+          {
+            "name": "PIAZZA E MEZZO 200 X 220 HYBRID 80",
+            "sku": "PIAZZA-200-220-HYBRID-80",
+            "listinoPrice": 369.00,
+            "suggestedPublicPriceInclVAT": 899.00
+          },
+          {
+            "name": "PIAZZA E MEZZO 200 X 220 HYBRID 150",
+            "sku": "PIAZZA-200-220-HYBRID-150",
+            "listinoPrice": 399.00,
+            "suggestedPublicPriceInclVAT": 969.00
+          },
+          {
+            "name": "MATRIMONIALE 250 X 220 HYBRID 80",
+            "sku": "MATRIMONIALE-250-220-HYBRID-80",
+            "listinoPrice": 399.00,
+            "suggestedPublicPriceInclVAT": 969.00
+          },
+          {
+            "name": "MATRIMONIALE 250 X 220 HYBRID 150",
+            "sku": "MATRIMONIALE-250-220-HYBRID-150",
+            "listinoPrice": 439.00,
+            "suggestedPublicPriceInclVAT": 1069.00
+          },
+          {
+            "name": "MATRIMONIALE DUAL NEST 250 X 220 HYBRID 80 + 150",
+            "sku": "MATRIMONIALE-250-220-HYBRID-DUAL",
+            "listinoPrice": 439.00,
+            "suggestedPublicPriceInclVAT": 1069.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE 280 X 240 HYBRID 80",
+            "sku": "MATRIMONIALE-280-240-HYBRID-80",
+            "listinoPrice": 449.00,
+            "suggestedPublicPriceInclVAT": 1089.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE 280 X 240 HYBRID 150",
+            "sku": "MATRIMONIALE-280-240-HYBRID-150",
+            "listinoPrice": 499.00,
+            "suggestedPublicPriceInclVAT": 1219.00
+          },
+          {
+            "name": "MATRIMONIALE KING SIZE DUAL NEST 280 X 240 HYBRID 80 + 150",
+            "sku": "MATRIMONIALE-280-240-HYBRID-DUAL",
+            "listinoPrice": 519.00,
+            "suggestedPublicPriceInclVAT": 1269.00
+          }
+        ];
+
+        // Funzione per mostrare un messaggio all'utente (sostituisce alert)
+        function showMessage(message, isError = false) {
+            messageBox.textContent = message;
+            messageBox.className = 'message-box show'; // Reset classes
+            if (isError) {
+                messageBox.classList.add('error');
+            } else {
+                messageBox.classList.remove('error');
+            }
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000); // Nasconde dopo 3 secondi
+        }
+
+        // Funzione per mostrare l'indicatore di caricamento
+        function showLoading() {
+            loadingIndicator.classList.remove('hidden');
+        }
+
+        // Funzione per nascondere l'indicatore di caricamento
+        function hideLoading() {
+            loadingIndicator.classList.add('hidden');
+        }
+
+        // Funzione per mostrare un messaggio di errore di autenticazione
+        function showAuthError(message) {
+            authMessage.textContent = `Errore: ${message}`;
+            authMessage.classList.remove('hidden');
+            hideLoading();
+        }
+
+        // Gestione dell'autenticazione
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                userIdDisplay.textContent = currentUserId;
+                isAuthReady = true;
+                console.log("Autenticato con UID:", currentUserId);
+                // Carica la tab predefinita (Articoli) dopo l'autenticazione
+                loadTab('products');
+            } else {
+                console.log("Nessun utente autenticato. Tentativo di accesso...");
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Accesso con token personalizzato riuscito.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Accesso anonimo riuscito.");
+                    }
+                } catch (error) {
+                    console.error("Errore di autenticazione:", error);
+                    showAuthError("Impossibile autenticarsi. Controlla la configurazione o riprova.");
+                }
+            }
+        });
+
+        // Funzione per renderizzare la sezione Articoli
+        function renderProductsSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Articoli</h2>
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Aggiungi Nuovo Articolo</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="productName" class="block text-sm font-medium text-gray-700">Nome Articolo:</label>
+                            <input type="text" id="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="productSKU" class="block text-sm font-medium text-gray-700">SKU:</label>
+                            <input type="text" id="productSKU" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="productPurchaseCost" class="block text-sm font-medium text-gray-700">Costo Acquisto (€):</label>
+                            <input type="number" id="productPurchaseCost" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="productQuantity" class="block text-sm font-medium text-gray-700">Quantità:</label>
+                            <input type="number" id="productQuantity" step="1" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="productListPriceB2B" class="block text-sm font-medium text-gray-700">Listino B2B (€):</label>
+                            <input type="number" id="productListPriceB2B" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="productSuggestedPriceB2C" class="block text-sm font-medium text-gray-700">Prezzo Consigliato B2C (€):</label>
+                            <input type="number" id="productSuggestedPriceB2C" step="0.01" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center space-x-4">
+                        <button id="addProductBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Aggiungi Articolo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Importa Articoli</h3>
+                    <p class="text-gray-600 mb-4">Importa un set di articoli predefiniti nel tuo magazzino. I duplicati (stesso SKU) verranno saltati.</p>
+                    <div class="text-center">
+                        <button id="importProductsBtn" class="bg-[#2ecc71] hover:bg-[#27ae60] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Importa Articoli dal Listino Predefinito
+                        </button>
+                        <p id="importStatusMessage" class="text-sm text-gray-600 mt-2"></p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Articoli in Magazzino</h3>
+                    <div id="productsList" class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Nome</th>
+                                    <th class="py-3 px-6 text-left">SKU</th>
+                                    <th class="py-3 px-6 text-right">Costo Acquisto</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Listino B2B</th>
+                                    <th class="py-3 px-6 text-right">Prezzo B2C</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="productsTableBody">
+                                <!-- Products will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noProductsMessage" class="text-center text-gray-500 mt-4 hidden">Nessun articolo trovato. Aggiungine uno!</p>
+                    </div>
+                </div>
+            `;
+            setupProductListeners();
+            listenToProducts();
+        }
+
+        // Funzione per renderizzare la sezione Clienti
+        function renderCustomersSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Clienti</h2>
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Aggiungi Nuovo Cliente</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="customerName" class="block text-sm font-medium text-gray-700">Nome Azienda:</label>
+                            <input type="text" id="customerName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="customerContact" class="block text-sm font-medium text-gray-700">Referente:</label>
+                            <input type="text" id="customerContact" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="customerEmail" class="block text-sm font-medium text-gray-700">Email:</label>
+                            <input type="email" id="customerEmail" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="customerPhone" class="block text-sm font-medium text-gray-700">Telefono:</label>
+                            <input type="tel" id="customerPhone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="customerAddress" class="block text-sm font-medium text-gray-700">Indirizzo:</label>
+                            <input type="text" id="customerAddress" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="customerDiscount" class="block text-sm font-medium text-gray-700">Percentuale Sconto Predefinita (%):</label>
+                            <input type="number" id="customerDiscount" step="0.01" value="0" min="0" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button id="addCustomerBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Aggiungi Cliente
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Elenco Clienti</h3>
+                    <div id="customersList" class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Azienda</th>
+                                    <th class="py-3 px-6 text-left">Referente</th>
+                                    <th class="py-3 px-6 text-left">Email</th>
+                                    <th class="py-3 px-6 text-left">Telefono</th>
+                                    <th class="py-3 px-6 text-left">Indirizzo</th>
+                                    <th class="py-3 px-6 text-right">Sconto (%)</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="customersTableBody">
+                                <!-- Customers will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noCustomersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun cliente trovato. Aggiungine uno!</p>
+                    </div>
+                </div>
+            `;
+            setupCustomerListeners();
+            listenToCustomers();
+        }
+
+        // Funzione per renderizzare la sezione Fornitori
+        function renderSuppliersSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Fornitori</h2>
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Aggiungi Nuovo Fornitore</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="supplierName" class="block text-sm font-medium text-gray-700">Nome Azienda:</label>
+                            <input type="text" id="supplierName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="supplierContact" class="block text-sm font-medium text-gray-700">Referente:</label>
+                            <input type="text" id="supplierContact" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="supplierEmail" class="block text-sm font-medium text-gray-700">Email:</label>
+                            <input type="email" id="supplierEmail" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div>
+                            <label for="supplierPhone" class="block text-sm font-medium text-gray-700">Telefono:</label>
+                            <input type="tel" id="supplierPhone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label for="supplierAddress" class="block text-sm font-medium text-gray-700">Indirizzo:</label>
+                            <input type="text" id="supplierAddress" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f95d6a] focus:ring-[#f95d6a] p-2">
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button id="addSupplierBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Aggiungi Fornitore
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Elenco Fornitori</h3>
+                    <div id="suppliersList" class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Azienda</th>
+                                    <th class="py-3 px-6 text-left">Referente</th>
+                                    <th class="py-3 px-6 text-left">Email</th>
+                                    <th class="py-3 px-6 text-left">Telefono</th>
+                                    <th class="py-3 px-6 text-left">Indirizzo</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="suppliersTableBody">
+                                <!-- Suppliers will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noSuppliersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun fornitore trovato. Aggiungine uno!</p>
+                    </div>
+                </div>
+            `;
+            setupSupplierListeners();
+            listenToSuppliers();
+        }
+
+        // Funzione per renderizzare la sezione Movimenti
+        function renderMovementsSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Movimenti</h2>
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Nuovi Movimenti</h3>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <button id="newPurchaseOrderBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Nuovo Ordine Fornitore
+                        </button>
+                        <button id="receivePurchaseOrderBtn" class="bg-gray-400 text-white font-bold py-2 px-6 rounded-lg shadow-md cursor-not-allowed" disabled>
+                            Carico Ordine Fornitore (Prossimamente)
+                        </button>
+                        <button id="newSalesOrderBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Nuovo Ordine Cliente
+                        </button>
+                        <button id="deliverSalesOrderBtn" class="bg-gray-400 text-white font-bold py-2 px-6 rounded-lg shadow-md cursor-not-allowed" disabled>
+                            Scarico Ordine Cliente (Prossimamente)
+                        </button>
+                        <button id="newCustomerReturnBtn" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                            Nuovo Reso Cliente
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Ordini Fornitore</h3>
+                    <div id="purchaseOrdersList" class="overflow-x-auto mb-8">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Ordine</th>
+                                    <th class="py-3 px-6 text-left">Fornitore</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Data Richiesta</th>
+                                    <th class="py-3 px-6 text-left">Data Confermata</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-left">Causale</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="purchaseOrdersTableBody">
+                                <!-- Purchase orders will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noPurchaseOrdersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun ordine fornitore trovato. Creane uno!</p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Ordini Cliente</h3>
+                    <div id="salesOrdersList" class="overflow-x-auto mb-8">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Ordine</th>
+                                    <th class="py-3 px-6 text-left">Cliente</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Data Richiesta</th>
+                                    <th class="py-3 px-6 text-left">Data Confermata</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-left">Causale</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="salesOrdersTableBody">
+                                <!-- Sales orders will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noSalesOrdersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun ordine cliente trovato. Creane uno!</p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Resi Cliente</h3>
+                    <div id="customerReturnsList" class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Reso</th>
+                                    <th class="py-3 px-6 text-left">Cliente</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Causale Reso</th>
+                                    <th class="py-3 px-6 text-left">Causale Originale</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="customerReturnsTableBody">
+                                <!-- Customer returns will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noCustomerReturnsMessage" class="text-center text-gray-500 mt-4 hidden">Nessun reso cliente trovato. Creane uno!</p>
+                    </div>
+                </div>
+            `;
+            setupMovementListeners();
+            listenToPurchaseOrders();
+            listenToSalesOrders();
+            listenToCustomerReturns(); // Start listening to customer returns
+            // Ensure all necessary data for dropdowns is loaded when this section is active
+            listenToProducts();
+            listenToCustomers();
+            listenToSuppliers();
+        }
+
+        // Funzione per renderizzare la sezione Gestione Ordini
+        function renderOrderManagementSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Ordini e Resi</h2>
+                <div class="mb-8 card p-4">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Filtra Movimenti per Stato</h3>
+                    <div id="orderFilterButtonsContainer" class="flex flex-wrap justify-center gap-4">
+                        <button id="filterAllOrdersBtn" class="tab-button active">Tutti</button>
+                        <button id="filterInProgressOrdersBtn" class="tab-button">In Corso</button>
+                        <button id="filterFulfilledOrdersBtn" class="tab-button">Evasi/Ricevuti</button>
+                        <button id="filterCancelledOrdersBtn" class="tab-button">Annullati</button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Ordini Fornitore</h3>
+                    <div id="filteredPurchaseOrdersList" class="overflow-x-auto mb-8">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Ordine</th>
+                                    <th class="py-3 px-6 text-left">Fornitore</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Data Richiesta</th>
+                                    <th class="py-3 px-6 text-left">Data Confermata</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-left">Causale</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="filteredPurchaseOrdersTableBody">
+                                <!-- Filtered purchase orders will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noFilteredPurchaseOrdersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun ordine fornitore trovato con questo filtro.</p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Ordini Cliente</h3>
+                    <div id="filteredSalesOrdersList" class="overflow-x-auto mb-8">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Ordine</th>
+                                    <th class="py-3 px-6 text-left">Cliente</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Data Richiesta</th>
+                                    <th class="py-3 px-6 text-left">Data Confermata</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-left">Causale</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="filteredSalesOrdersTableBody">
+                                <!-- Filtered sales orders will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noFilteredSalesOrdersMessage" class="text-center text-gray-500 mt-4 hidden">Nessun ordine cliente trovato con questo filtro.</p>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Resi Cliente</h3>
+                    <div id="filteredCustomerReturnsList" class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Data Reso</th>
+                                    <th class="py-3 px-6 text-left">Cliente</th>
+                                    <th class="py-3 px-6 text-left">Articolo</th>
+                                    <th class="py-3 px-6 text-right">Quantità</th>
+                                    <th class="py-3 px-6 text-right">Prezzo Unitario</th>
+                                    <th class="py-3 px-6 text-right">Totale</th>
+                                    <th class="py-3 px-6 text-left">Causale Reso</th>
+                                    <th class="py-3 px-6 text-left">Causale Originale</th>
+                                    <th class="py-3 px-6 text-left">Stato</th>
+                                    <th class="py-3 px-6 text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light" id="filteredCustomerReturnsTableBody">
+                                <!-- Filtered customer returns will be loaded here -->
+                            </tbody>
+                        </table>
+                        <p id="noFilteredCustomerReturnsMessage" class="text-center text-gray-500 mt-4 hidden">Nessun reso cliente trovato con questo filtro.</p>
+                    </div>
+                </div>
+            `;
+            setupOrderManagementListeners();
+            // Initial display of all orders
+            filterAndDisplayOrders('all');
+            hideLoading();
+            // Ensure all necessary data for dropdowns is loaded when this section is active
+            listenToProducts();
+            listenToCustomers();
+            listenToSuppliers();
+        }
+
+        // Funzione per renderizzare la sezione Dati (Import/Export)
+        function renderDataSection() {
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Gestione Dati (Importa/Esporta)</h2>
+                <div class="mb-8 card p-4 text-center">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Esporta Dati</h3>
+                    <p class="text-gray-600 mb-4">Scarica tutti i tuoi dati (Articoli, Clienti, Fornitori, Ordini, Resi) in un singolo file JSON per backup.</p>
+                    <button id="exportDataBtn" class="bg-[#2ecc71] hover:bg-[#27ae60] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        Esporta Tutti i Dati (JSON)
+                    </button>
+                </div>
+
+                <div class="mb-8 card p-4 text-center">
+                    <h3 class="text-xl font-semibold mb-4 text-[#a05195]">Importa Dati</h3>
+                    <p class="text-gray-600 mb-4">Carica un file JSON precedentemente esportato per ripristinare o aggiungere dati.</p>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden">
+                    <label for="importFileInput" class="bg-[#f95d6a] hover:bg-[#d45087] text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out cursor-pointer">
+                        Seleziona File JSON
+                    </label>
+                    <button id="triggerImportBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out ml-4" disabled>
+                        Importa Dati
+                    </button>
+                    <p id="importDataStatusMessage" class="text-sm text-gray-600 mt-2"></p>
+                </div>
+            `;
+            setupDataListeners();
+            hideLoading(); // Hide loading after rendering the section
+        }
+
+        // Funzione per caricare la sezione selezionata
+        function loadTab(tabName) {
+            // Disiscrivi dai listener precedenti per evitare duplicati
+            if (unsubscribeProductListener) unsubscribeProductListener();
+            if (unsubscribeCustomerListener) unsubscribeCustomerListener();
+            if (unsubscribeSupplierListener) unsubscribeSupplierListener();
+            if (unsubscribePurchaseOrderListener) unsubscribePurchaseOrderListener();
+            if (unsubscribeSalesOrderListener) unsubscribeSalesOrderListener();
+            if (unsubscribeCustomerReturnListener) unsubscribeCustomerReturnListener(); // Unsubscribe new listener
+
+            // Rimuovi la classe 'active' da tutti i bottoni
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Aggiungi la classe 'active' al bottone cliccato
+            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+
+            showLoading(); // Mostra l'indicatore di caricamento
+
+            // Assicurati che l'autenticazione sia pronta prima di caricare i dati
+            if (!isAuthReady) {
+                const checkAuthInterval = setInterval(() => {
+                    if (isAuthReady) {
+                        clearInterval(checkAuthInterval);
+                        loadContentForTab(tabName);
+                    }
+                }, 100); // Controlla ogni 100ms
+            } else {
+                loadContentForTab(tabName);
+            }
+        }
+
+        function loadContentForTab(tabName) {
+            switch (tabName) {
+                case 'products':
+                    renderProductsSection();
+                    break;
+                case 'customers':
+                    renderCustomersSection();
+                    break;
+                case 'suppliers':
+                    renderSuppliersSection();
+                    break;
+                case 'movements':
+                    renderMovementsSection();
+                    break;
+                case 'orderManagement': // New case for Order Management tab
+                    renderOrderManagementSection();
+                    break;
+                case 'data': // New case for Data tab
+                    renderDataSection();
+                    break;
+                // case 'statistics':
+                //     contentArea.innerHTML = `<h2 class="text-2xl font-bold text-center mb-6 text-[#f95d6a]">Statistiche (Prossimamente)</h2><p class="text-center text-gray-600">Qui potrai visualizzare grafici e report sulla tua attività.</p>`;
+                //     hideLoading();
+                //     break;
+                default:
+                    contentArea.innerHTML = `<p class="text-center text-red-500">Sezione non trovata.</p>`;
+                    hideLoading();
+            }
+        }
+
+        // --- Funzioni per la gestione degli Articoli ---
+        function setupProductListeners() {
+            document.getElementById('addProductBtn').addEventListener('click', addProduct);
+            document.getElementById('importProductsBtn').addEventListener('click', importProductsFromJSON);
+            
+            // Event delegation for edit buttons on the products table body
+            document.getElementById('productsTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-product-btn')) {
+                    editProduct(e.target.dataset.id);
+                }
+            });
+
+            // Listeners for the modal buttons
+            document.getElementById('saveModalProductBtn').addEventListener('click', saveProduct);
+            document.getElementById('cancelModalProductEditBtn').addEventListener('click', hideProductModal);
+            document.getElementById('closeProductModalBtn').addEventListener('click', hideProductModal);
+        }
+
+        // Funzione per salvare o aggiornare un prodotto (usata dalla modale)
+        async function saveProduct() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile salvare l'articolo.");
+                return;
+            }
+
+            // Get values from modal inputs
+            const name = document.getElementById('modalProductName').value.trim();
+            const sku = document.getElementById('modalProductSKU').value.trim(); // SKU is disabled but still read
+            const purchaseCost = parseFloat(document.getElementById('modalProductPurchaseCost').value);
+            const quantity = parseInt(document.getElementById('modalProductQuantity').value);
+            const listPriceB2B = parseFloat(document.getElementById('modalListPriceB2B').value);
+            const suggestedPriceB2C = parseFloat(document.getElementById('modalSuggestedPriceB2C').value);
+
+            if (!name || !sku || isNaN(purchaseCost) || isNaN(quantity) || isNaN(listPriceB2B) || isNaN(suggestedPriceB2C)) {
+                showMessage("Per favor, compila tutti i campi dell'articolo con valori validi.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const productsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/products`);
+
+                if (editingProductId) {
+                    // Modalità modifica
+                    const productRef = doc(db, `artifacts/${appId}/users/${currentUserId}/products`, editingProductId);
+                    await setDoc(productRef, {
+                        name,
+                        // SKU should not be changed during edit, it's disabled.
+                        purchaseCost,
+                        quantity,
+                        listPriceB2B,
+                        suggestedPriceB2C,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true }); // Usa merge per aggiornare solo i campi forniti
+                    showMessage("Articolo aggiornato con successo!");
+                } else {
+                    // This block should ideally not be reached if saveProduct is only called from modal edit.
+                    // If it were, it's for adding a new product, but the main form handles that.
+                    // For safety, keeping the SKU check.
+                    const q = query(productsCol, where("sku", "==", sku));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        showMessage(`Un articolo con SKU "${sku}" esiste già. Impossibile aggiungere duplicati.`, true);
+                        hideLoading();
+                        return;
+                    }
+
+                    await addDoc(productsCol, {
+                        name,
+                        sku,
+                        purchaseCost,
+                        quantity,
+                        listPriceB2B,
+                        suggestedPriceB2C,
+                        createdAt: serverTimestamp()
+                    });
+                    showMessage("Articolo aggiunto con successo!");
+                }
+                hideProductModal(); // Close modal after saving
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nel salvataggio dell'articolo: ", e);
+                showMessage("Errore nel salvataggio dell'articolo: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        // Funzione per aggiungere un nuovo prodotto dalla form principale
+        async function addProduct() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile aggiungere l'articolo.");
+                return;
+            }
+
+            const name = document.getElementById('productName').value.trim();
+            const sku = document.getElementById('productSKU').value.trim();
+            const purchaseCost = parseFloat(document.getElementById('productPurchaseCost').value);
+            const quantity = parseInt(document.getElementById('productQuantity').value);
+            const listPriceB2B = parseFloat(document.getElementById('productListPriceB2B').value);
+            const suggestedPriceB2C = parseFloat(document.getElementById('productSuggestedPriceB2C').value);
+
+            if (!name || !sku || isNaN(purchaseCost) || isNaN(quantity) || isNaN(listPriceB2B) || isNaN(suggestedPriceB2C)) {
+                showMessage("Per favore, compila tutti i campi dell'articolo con valori validi.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const productsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/products`);
+                
+                // Check for existing SKU
+                const q = query(productsCol, where("sku", "==", sku));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    showMessage(`Un articolo con SKU "${sku}" esiste già. Impossibile aggiungere duplicati.`, true);
+                    hideLoading();
+                    return;
+                }
+
+                await addDoc(productsCol, {
+                    name,
+                    sku,
+                    purchaseCost,
+                    quantity,
+                    listPriceB2B,
+                    suggestedPriceB2C,
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Articolo aggiunto con successo!");
+                // Clear form
+                document.getElementById('productName').value = '';
+                document.getElementById('productSKU').value = '';
+                document.getElementById('productPurchaseCost').value = '0';
+                document.getElementById('productQuantity').value = '0';
+                document.getElementById('productListPriceB2B').value = '0';
+                document.getElementById('productSuggestedPriceB2C').value = '0';
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nell'aggiunta dell'articolo: ", e);
+                showMessage("Errore nell'aggiunta dell'articolo: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+
+        // Funzione per popolare il modulo modale con i dati del prodotto da modificare e mostrarlo
+        async function editProduct(productId) {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile modificare l'articolo.");
+                return;
+            }
+            showLoading();
+            try {
+                const productRef = doc(db, `artifacts/${appId}/users/${currentUserId}/products`, productId);
+                const productSnap = await getDoc(productRef); 
+                
+                if (productSnap.exists()) {
+                    const productData = productSnap.data();
+                    document.getElementById('modalProductName').value = productData.name;
+                    document.getElementById('modalProductSKU').value = productData.sku;
+                    document.getElementById('modalProductPurchaseCost').value = productData.purchaseCost;
+                    document.getElementById('modalProductQuantity').value = productData.quantity;
+                    document.getElementById('modalListPriceB2B').value = productData.listPriceB2B;
+                    document.getElementById('modalSuggestedPriceB2C').value = productData.suggestedPriceB2C;
+
+                    editingProductId = productId; // Imposta l'ID del prodotto in modifica
+                    
+                    // Show modal: Set display to flex first, then add 'show' class for transition
+                    editProductModal.style.display = 'flex'; 
+                    setTimeout(() => {
+                        editProductModal.classList.add('show'); 
+                    }, 10); // Small delay to ensure display:flex is applied before transition
+                    
+                    hideLoading();
+                } else {
+                    showMessage("Articolo non trovato per la modifica.", true);
+                    hideLoading();
+                }
+            } catch (e) {
+                console.error("Errore nel caricamento dell'articolo per la modifica: ", e);
+                showMessage("Errore nel caricamento dell'articolo: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        // Funzione per nascondere la modale e resettare i campi
+        function hideProductModal() {
+            editProductModal.classList.remove('show');
+            // Hide modal completely after transition
+            setTimeout(() => {
+                editProductModal.style.display = 'none';
+            }, 300); // Match CSS transition duration
+            // Clear modal form fields
+            document.getElementById('modalProductName').value = '';
+            document.getElementById('modalProductSKU').value = '';
+            document.getElementById('modalProductPurchaseCost').value = '';
+            document.getElementById('modalProductQuantity').value = '';
+            document.getElementById('modalListPriceB2B').value = '';
+            document.getElementById('modalSuggestedPriceB2C').value = '';
+            editingProductId = null; // Reset editing ID
+        }
+
+
+        async function importProductsFromJSON() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile importare gli articoli.");
+                return;
+            }
+
+            showLoading();
+            const productsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/products`);
+            let importedCount = 0;
+            let skippedCount = 0;
+            
+            // Get a fresh reference to the status message element
+            const importStatusMessageElement = document.getElementById('importStatusMessage');
+
+            if (importStatusMessageElement) {
+                importStatusMessageElement.textContent = 'Importazione in corso...';
+            } else {
+                console.error("Elemento 'importStatusMessage' non trovato. Impossibile mostrare lo stato dell'importazione.");
+            }
+
+            try {
+                // Get existing SKUs to avoid duplicates
+                const existingProductsSnapshot = await getDocs(productsCol);
+                const existingSKUs = new Set(existingProductsSnapshot.docs.map(doc => doc.data().sku));
+
+                for (const product of productsData) {
+                    if (existingSKUs.has(product.sku)) {
+                        skippedCount++;
+                        continue; // Skip if SKU already exists
+                    }
+
+                    await addDoc(productsCol, {
+                        name: product.name,
+                        sku: product.sku,
+                        purchaseCost: 0, // Default to 0, user can update later
+                        quantity: 0, // Default to 0, user can update later
+                        listPriceB2B: product.listinoPrice,
+                        suggestedPriceB2C: product.suggestedPublicPriceInclVAT,
+                        createdAt: serverTimestamp()
+                    });
+                    importedCount++;
+                }
+                if (importStatusMessageElement) {
+                    importStatusMessageElement.textContent = `Importazione completata: ${importedCount} articoli aggiunti, ${skippedCount} duplicati saltati.`;
+                }
+                showMessage(`Importazione completata: ${importedCount} articoli aggiunti, ${skippedCount} duplicati saltati.`);
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nell'importazione degli articoli: ", e);
+                if (importStatusMessageElement) {
+                    importStatusMessageElement.textContent = `Errore nell'importazione: ${e.message}`;
+                }
+                showMessage(`Errore nell'importazione: ${e.message}`, true);
+                hideLoading();
+            }
+        }
+
+
+        function listenToProducts() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto dei prodotti.");
+                return;
+            }
+            const productsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/products`);
+            // Query con ordinamento per nome
+            const q = query(productsCol, orderBy("name"));
+
+            unsubscribeProductListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const productsTableBody = document.getElementById('productsTableBody');
+                const noProductsMessage = document.getElementById('noProductsMessage');
+
+                if (!productsTableBody || !noProductsMessage) {
+                    console.warn("Elementi della tabella prodotti non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Products data received:", snapshot.docs.length, "documents."); 
+                productsTableBody.innerHTML = ''; // Clear existing rows
+                allProducts = []; // Clear cache
+                
+                if (snapshot.empty) {
+                    noProductsMessage.classList.remove('hidden');
+                } else {
+                    noProductsMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => {
+                        const product = docEntry.data();
+                        const productId = docEntry.id;
+                        allProducts.push({ id: productId, ...product }); // Add to cache
+                        const row = productsTableBody.insertRow();
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${product.name}</td>
+                            <td class="py-3 px-6 text-left">${product.sku}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(product.purchaseCost)}</td>
+                            <td class="py-3 px-6 text-right">${product.quantity}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(product.listPriceB2B)}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(product.suggestedPriceB2C)}</td>
+                            <td class="py-3 px-6 text-center">
+                                <button data-id="${productId}" class="edit-product-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                            </td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto dei prodotti:", error);
+                showAuthError("Errore nel caricamento degli articoli: " + error.message);
+            });
+        }
+
+        // --- Funzioni per la gestione dei Clienti ---
+        function setupCustomerListeners() {
+            document.getElementById('addCustomerBtn').addEventListener('click', addCustomer);
+            // Event delegation for edit buttons on the customers table body
+            document.getElementById('customersTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-customer-btn')) {
+                    editCustomer(e.target.dataset.id);
+                }
+            });
+
+            // Listeners for the customer modal buttons
+            document.getElementById('saveModalCustomerBtn').addEventListener('click', saveCustomer);
+            document.getElementById('cancelModalCustomerEditBtn').addEventListener('click', hideCustomerModal);
+            document.getElementById('closeCustomerModalBtn').addEventListener('click', hideCustomerModal);
+        }
+
+        async function addCustomer() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile aggiungere il cliente.");
+                return;
+            }
+
+            const name = document.getElementById('customerName').value.trim();
+            const contact = document.getElementById('customerContact').value.trim();
+            const email = document.getElementById('customerEmail').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const discount = parseFloat(document.getElementById('customerDiscount').value);
+
+
+            if (!name || !contact || !email || !phone || !address || isNaN(discount) || discount < 0 || discount > 100) {
+                showMessage("Per favore, compila tutti i campi del cliente con valori validi (sconto tra 0 e 100).", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const customersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customers`);
+                await addDoc(customersCol, {
+                    name,
+                    contact,
+                    email,
+                    phone,
+                    address,
+                    defaultDiscountPercentage: discount, // Save the discount
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Cliente aggiunto con successo!");
+                // Clear form
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerContact').value = '';
+                document.getElementById('customerEmail').value = '';
+                document.getElementById('customerPhone').value = '';
+                document.getElementById('customerAddress').value = '';
+                document.getElementById('customerDiscount').value = '0';
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nell'aggiunta del cliente: ", e);
+                showMessage("Errore nell'aggiunta del cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        // Funzione per salvare o aggiornare un cliente (usata dalla modale)
+        async function saveCustomer() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile salvare il cliente.");
+                return;
+            }
+
+            const name = document.getElementById('modalCustomerName').value.trim();
+            const contact = document.getElementById('modalCustomerContact').value.trim();
+            const email = document.getElementById('modalCustomerEmail').value.trim();
+            const phone = document.getElementById('modalCustomerPhone').value.trim();
+            const address = document.getElementById('modalCustomerAddress').value.trim();
+            const discount = parseFloat(document.getElementById('modalCustomerDiscount').value);
+
+            if (!name || !contact || !email || !phone || !address || isNaN(discount) || discount < 0 || discount > 100) {
+                showMessage("Per favor, compila tutti i campi del cliente con valori validi (sconto tra 0 e 100).", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const customerRef = doc(db, `artifacts/${appId}/users/${currentUserId}/customers`, editingCustomerId);
+                await setDoc(customerRef, {
+                    name,
+                    contact,
+                    email,
+                    phone,
+                    address,
+                    defaultDiscountPercentage: discount,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                showMessage("Cliente aggiornato con successo!");
+                hideCustomerModal();
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nel salvataggio del cliente: ", e);
+                showMessage("Errore nel salvataggio del cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        // Funzione per popolare il modulo modale con i dati del cliente da modificare e mostrarlo
+        async function editCustomer(customerId) {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile modificare il cliente.");
+                return;
+            }
+            showLoading();
+            try {
+                const customerRef = doc(db, `artifacts/${appId}/users/${currentUserId}/customers`, customerId);
+                const customerSnap = await getDoc(customerRef); 
+                
+                if (customerSnap.exists()) {
+                    const customerData = customerSnap.data();
+                    document.getElementById('modalCustomerName').value = customerData.name;
+                    document.getElementById('modalCustomerContact').value = customerData.contact;
+                    document.getElementById('modalCustomerEmail').value = customerData.email;
+                    document.getElementById('modalCustomerPhone').value = customerData.phone;
+                    document.getElementById('modalCustomerAddress').value = customerData.address;
+                    document.getElementById('modalCustomerDiscount').value = customerData.defaultDiscountPercentage || 0;
+
+                    editingCustomerId = customerId; // Imposta l'ID del cliente in modifica
+                    
+                    editCustomerModal.style.display = 'flex'; 
+                    setTimeout(() => {
+                        editCustomerModal.classList.add('show'); 
+                    }, 10); 
+                    
+                    hideLoading();
+                } else {
+                    showMessage("Cliente non trovato per la modifica.", true);
+                    hideLoading();
+                }
+            } catch (e) {
+                console.error("Errore nel caricamento del cliente per la modifica: ", e);
+                showMessage("Errore nel caricamento del cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        // Funzione per nascondere la modale cliente e resettare i campi
+        function hideCustomerModal() {
+            editCustomerModal.classList.remove('show');
+            setTimeout(() => {
+                editCustomerModal.style.display = 'none';
+            }, 300); 
+            document.getElementById('modalCustomerName').value = '';
+            document.getElementById('modalCustomerContact').value = '';
+            document.getElementById('modalCustomerEmail').value = '';
+            document.getElementById('modalCustomerPhone').value = '';
+            document.getElementById('modalCustomerAddress').value = '';
+            document.getElementById('modalCustomerDiscount').value = '0';
+            editingCustomerId = null; 
+        }
+
+        function listenToCustomers() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto dei clienti.");
+                return;
+            }
+            const customersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customers`);
+            const q = query(customersCol, orderBy("name")); // Ordinamento per nome cliente
+
+            unsubscribeCustomerListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const customersTableBody = document.getElementById('customersTableBody');
+                const noCustomersMessage = document.getElementById('noCustomersMessage');
+
+                if (!customersTableBody || !noCustomersMessage) {
+                    console.warn("Elementi della tabella clienti non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Customers data received:", snapshot.docs.length, "documents."); 
+                customersTableBody.innerHTML = ''; // Clear existing rows
+                allCustomers = []; // Clear cache
+                
+                if (snapshot.empty) {
+                    noCustomersMessage.classList.remove('hidden');
+                } else {
+                    noCustomersMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => { 
+                        const customer = docEntry.data();
+                        const customerId = docEntry.id;
+                        allCustomers.push({ id: customerId, ...customer }); 
+                        const row = customersTableBody.insertRow();
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${customer.name}</td>
+                            <td class="py-3 px-6 text-left">${customer.contact}</td>
+                            <td class="py-3 px-6 text-left">${customer.email}</td>
+                            <td class="py-3 px-6 text-left">${customer.phone}</td>
+                            <td class="py-3 px-6 text-left">${customer.address}</td>
+                            <td class="py-3 px-6 text-right">${customer.defaultDiscountPercentage || 0}%</td>
+                            <td class="py-3 px-6 text-center">
+                                <button data-id="${customerId}" class="edit-customer-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                            </td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto dei clienti:", error);
+                showAuthError("Errore nel caricamento dei clienti: " + error.message);
+            });
+        }
+
+        // --- Funzioni per la gestione dei Fornitori ---
+        function setupSupplierListeners() {
+            document.getElementById('addSupplierBtn').addEventListener('click', addSupplier);
+        }
+
+        async function addSupplier() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile aggiungere il fornitore.");
+                return;
+            }
+
+            const name = document.getElementById('supplierName').value.trim();
+            const contact = document.getElementById('supplierContact').value.trim();
+            const email = document.getElementById('supplierEmail').value.trim();
+            const phone = document.getElementById('supplierPhone').value.trim();
+            const address = document.getElementById('supplierAddress').value.trim();
+
+            if (!name || !contact || !email || !phone || !address) {
+                showMessage("Per favor, compila tutti i campi del fornitore.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const suppliersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/suppliers`);
+                await addDoc(suppliersCol, {
+                    name,
+                    contact,
+                    email,
+                    phone,
+                    address,
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Fornitore aggiunto con successo!");
+                // Clear form
+                document.getElementById('supplierName').value = '';
+                document.getElementById('supplierContact').value = '';
+                document.getElementById('supplierEmail').value = '';
+                document.getElementById('supplierPhone').value = '';
+                document.getElementById('supplierAddress').value = '';
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nell'aggiunta del fornitore: ", e);
+                showMessage("Errore nell'aggiunta del fornitore: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function listenToSuppliers() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto dei fornitori.");
+                return;
+            }
+            const suppliersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/suppliers`);
+            const q = query(suppliersCol, orderBy("name")); // Ordinamento per nome fornitore
+
+            unsubscribeSupplierListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const suppliersTableBody = document.getElementById('suppliersTableBody');
+                const noSuppliersMessage = document.getElementById('noSuppliersMessage');
+
+                if (!suppliersTableBody || !noSuppliersMessage) {
+                    console.warn("Elementi della tabella fornitori non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Suppliers data received:", snapshot.docs.length, "documents."); 
+                suppliersTableBody.innerHTML = ''; // Clear existing rows
+                allSuppliers = []; // Clear cache
+                
+                if (snapshot.empty) {
+                    noSuppliersMessage.classList.remove('hidden');
+                } else {
+                    noSuppliersMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => {
+                        const supplier = docEntry.data();
+                        const supplierId = docEntry.id;
+                        allSuppliers.push({ id: supplierId, ...supplier }); 
+                        const row = suppliersTableBody.insertRow();
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${supplier.name}</td>
+                            <td class="py-3 px-6 text-left">${supplier.contact}</td>
+                            <td class="py-3 px-6 text-left">${supplier.email}</td>
+                            <td class="py-3 px-6 text-left">${supplier.phone}</td>
+                            <td class="py-3 px-6 text-left">${supplier.address}</td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto dei fornitori:", error);
+                showAuthError("Errore nel caricamento dei fornitori: " + error.message);
+            });
+        }
+
+        // Funzione per popolare un dropdown con le opzioni di causale
+        function populateCausaleDropdown(dropdownElement, causaliList, selectedCausale = '') {
+            dropdownElement.innerHTML = '<option value="">Seleziona Causale</option>';
+            causaliList.forEach(causale => {
+                const option = document.createElement('option');
+                option.value = causale;
+                option.textContent = causale;
+                if (causale === selectedCausale) {
+                    option.selected = true;
+                }
+                dropdownElement.appendChild(option);
+            });
+        }
+
+
+        // --- Funzioni per la gestione dei Movimenti ---
+        function setupMovementListeners() {
+            document.getElementById('newPurchaseOrderBtn').addEventListener('click', showPurchaseOrderModal);
+            document.getElementById('savePurchaseOrderBtn').addEventListener('click', createPurchaseOrder);
+            document.getElementById('cancelPurchaseOrderBtn').addEventListener('click', hidePurchaseOrderModal);
+            document.getElementById('closePurchaseOrderModalBtn').addEventListener('click', hidePurchaseOrderModal);
+
+            document.getElementById('newSalesOrderBtn').addEventListener('click', showSalesOrderModal); 
+            document.getElementById('saveSalesOrderBtn').addEventListener('click', createSalesOrder); 
+            document.getElementById('cancelSalesOrderBtn').addEventListener('click', hideSalesOrderModal); 
+            document.getElementById('closeSalesOrderModalBtn').addEventListener('click', hideSalesOrderModal); 
+
+            document.getElementById('newCustomerReturnBtn').addEventListener('click', showCustomerReturnModal); // New listener
+            document.getElementById('saveCustomerReturnBtn').addEventListener('click', createCustomerReturn); // New listener
+            document.getElementById('cancelCustomerReturnBtn').addEventListener('click', hideCustomerReturnModal); // New listener
+            document.getElementById('closeCustomerReturnModalBtn').addEventListener('click', hideCustomerReturnModal); // New listener
+
+            // Event delegation for edit buttons on the orders tables
+            document.getElementById('purchaseOrdersTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'purchase');
+                }
+            });
+            document.getElementById('salesOrdersTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'sales');
+                }
+            });
+            document.getElementById('customerReturnsTableBody').addEventListener('click', (e) => { // New listener
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'customerReturns');
+                }
+            });
+
+            // Listeners for the generic order edit modal
+            document.getElementById('saveModalOrderBtn').addEventListener('click', saveEditedOrder);
+            document.getElementById('cancelModalOrderEditBtn').addEventListener('click', hideOrderGenericModal);
+            document.getElementById('closeOrderGenericModalBtn').addEventListener('click', hideOrderGenericModal);
+
+
+            // Listener per precompilare il prezzo unitario quando si seleziona un articolo (Ordine Fornitore)
+            document.getElementById('orderProduct').addEventListener('change', (event) => {
+                const selectedProductId = event.target.value;
+                const selectedProduct = allProducts.find(p => p.id === selectedProductId);
+                if (selectedProduct) {
+                    // Precompila con il costo di acquisto (purchaseCost)
+                    document.getElementById('orderUnitPrice').value = selectedProduct.purchaseCost || 0;
+                } else {
+                    document.getElementById('orderUnitPrice').value = 0;
+                }
+            });
+
+            // Listener per precompilare il prezzo unitario quando si seleziona un articolo e un cliente (Ordine Cliente)
+            document.getElementById('salesOrderProduct').addEventListener('change', updateSalesOrderUnitPrice);
+            document.getElementById('salesOrderCustomer').addEventListener('change', updateSalesOrderUnitPrice);
+
+            // Listener per precompilare il prezzo unitario quando si seleziona un articolo e un cliente (Reso Cliente)
+            document.getElementById('returnProduct').addEventListener('change', updateCustomerReturnUnitPrice);
+            document.getElementById('returnCustomer').addEventListener('change', updateCustomerReturnUnitPrice);
+
+
+            // Set current date for orderDate input
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); 
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+            document.getElementById('orderDate').value = todayFormatted;
+            document.getElementById('purchaseRequestedDeliveryDate').value = todayFormatted;
+            document.getElementById('purchaseConfirmedDeliveryDate').value = todayFormatted;
+
+            document.getElementById('salesOrderDate').value = todayFormatted; 
+            document.getElementById('salesRequestedDeliveryDate').value = todayFormatted;
+            document.getElementById('salesConfirmedDeliveryDate').value = todayFormatted;
+
+            document.getElementById('returnDate').value = todayFormatted; // New for returns
+        }
+
+        // Function to update sales order unit price based on selected product and customer discount
+        function updateSalesOrderUnitPrice() {
+            const selectedProductId = document.getElementById('salesOrderProduct').value;
+            const selectedCustomerId = document.getElementById('salesOrderCustomer').value;
+
+            const selectedProduct = allProducts.find(p => p.id === selectedProductId);
+            const selectedCustomer = allCustomers.find(c => c.id === selectedCustomerId);
+
+            let calculatedPrice = 0;
+            if (selectedProduct) {
+                calculatedPrice = selectedProduct.suggestedPriceB2C || 0;
+                if (selectedCustomer && typeof selectedCustomer.defaultDiscountPercentage === 'number') {
+                    const discountFactor = (100 - selectedCustomer.defaultDiscountPercentage) / 100;
+                    calculatedPrice = calculatedPrice * discountFactor;
+                }
+            }
+            document.getElementById('salesOrderUnitPrice').value = calculatedPrice.toFixed(2);
+        }
+
+        // Function to update customer return unit price based on selected product and customer discount
+        function updateCustomerReturnUnitPrice() {
+            const selectedProductId = document.getElementById('returnProduct').value;
+            const selectedCustomerId = document.getElementById('returnCustomer').value;
+
+            const selectedProduct = allProducts.find(p => p.id === selectedProductId);
+            const selectedCustomer = allCustomers.find(c => c.id === selectedCustomerId);
+
+            let calculatedPrice = 0;
+            if (selectedProduct) {
+                // For returns, default to the B2B list price or purchase cost, or even the B2C price if it's a return from a B2C sale.
+                // Let's use the B2C suggested price as a default, assuming it's a return from a retail sale.
+                calculatedPrice = selectedProduct.suggestedPriceB2C || 0; 
+                // If the original sale was with a discount, the return price might also reflect that.
+                // For simplicity, let's just use the B2C suggested price as a starting point.
+            }
+            document.getElementById('returnUnitPrice').value = calculatedPrice.toFixed(2);
+        }
+
+
+        async function showPurchaseOrderModal() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare l'ordine.");
+                return;
+            }
+
+            showLoading();
+            try {
+                // Populate suppliers dropdown
+                const supplierSelect = document.getElementById('orderSupplier');
+                supplierSelect.innerHTML = '<option value="">Seleziona Fornitore</option>';
+                allSuppliers.forEach(supplier => {
+                    const option = document.createElement('option');
+                    option.value = supplier.id;
+                    option.textContent = supplier.name;
+                    supplierSelect.appendChild(option);
+                });
+
+                // Populate products dropdown
+                const productSelect = document.getElementById('orderProduct');
+                productSelect.innerHTML = '<option value="">Seleziona Articolo</option>';
+                allProducts.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} (SKU: ${product.sku})`;
+                    productSelect.appendChild(option);
+                });
+
+                // Populate causale dropdown for purchase orders
+                const purchaseOrderCausaleSelect = document.getElementById('purchaseOrderCausale');
+                populateCausaleDropdown(purchaseOrderCausaleSelect, purchaseOrderCausali);
+
+
+                // Reset form fields and set current date
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0'); 
+                const dd = String(today.getDate()).padStart(2, '0');
+                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                document.getElementById('orderQuantity').value = 1;
+                document.getElementById('orderUnitPrice').value = 0; 
+                document.getElementById('orderDate').value = todayFormatted;
+                document.getElementById('purchaseRequestedDeliveryDate').value = todayFormatted;
+                document.getElementById('purchaseConfirmedDeliveryDate').value = todayFormatted;
+
+
+                newPurchaseOrderModal.style.display = 'flex';
+                setTimeout(() => {
+                    newPurchaseOrderModal.classList.add('show');
+                }, 10);
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nel caricamento della modale ordine fornitore:", e);
+                showMessage("Errore nel caricamento della modale ordine fornitore: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function hidePurchaseOrderModal() {
+            newPurchaseOrderModal.classList.remove('show');
+            setTimeout(() => {
+                newPurchaseOrderModal.style.display = 'none';
+            }, 300);
+        }
+
+        async function createPurchaseOrder() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare l'ordine.");
+                return;
+            }
+
+            const supplierId = document.getElementById('orderSupplier').value;
+            const productId = document.getElementById('orderProduct').value;
+            const orderQuantity = parseInt(document.getElementById('orderQuantity').value);
+            const unitPrice = parseFloat(document.getElementById('orderUnitPrice').value);
+            const orderDate = document.getElementById('orderDate').value;
+            const requestedDeliveryDate = document.getElementById('purchaseRequestedDeliveryDate').value;
+            const confirmedDeliveryDate = document.getElementById('purchaseConfirmedDeliveryDate').value;
+            const causale = document.getElementById('purchaseOrderCausale').value;
+
+
+            if (!supplierId || !productId || isNaN(orderQuantity) || orderQuantity <= 0 || isNaN(unitPrice) || unitPrice < 0 || !orderDate || !requestedDeliveryDate || !confirmedDeliveryDate || !causale) {
+                showMessage("Per favor, compila tutti i campi dell'ordine con valori validi, incluse le date di consegna e la causale.", true);
+                return;
+            }
+
+            const selectedSupplier = allSuppliers.find(s => s.id === supplierId);
+            const selectedProduct = allProducts.find(p => p.id === productId);
+
+            if (!selectedSupplier || !selectedProduct) {
+                showMessage("Fornitore o Articolo selezionato non valido.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const purchaseOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/purchaseOrders`);
+                await addDoc(purchaseOrdersCol, {
+                    supplierId: selectedSupplier.id,
+                    supplierName: selectedSupplier.name,
+                    productId: selectedProduct.id,
+                    productName: selectedProduct.name,
+                    productSKU: selectedProduct.sku,
+                    orderQuantity: orderQuantity,
+                    unitPrice: unitPrice,
+                    totalPrice: orderQuantity * unitPrice,
+                    orderDate: orderDate,
+                    requestedDeliveryDate: requestedDeliveryDate,
+                    confirmedDeliveryDate: confirmedDeliveryDate,
+                    status: "Ordinato", // Initial status
+                    causale: causale, // Save the causale
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Ordine fornitore creato con successo!");
+                hidePurchaseOrderModal();
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nella creazione dell'ordine fornitore: ", e);
+                showMessage("Errore nella creazione dell'ordine fornitore: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function listenToPurchaseOrders() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto degli ordini fornitore.");
+                return;
+            }
+            const purchaseOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/purchaseOrders`);
+            const q = query(purchaseOrdersCol, orderBy("createdAt", "desc")); 
+
+            unsubscribePurchaseOrderListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const purchaseOrdersTableBody = document.getElementById('purchaseOrdersTableBody');
+                const noPurchaseOrdersMessage = document.getElementById('noPurchaseOrdersMessage');
+
+                if (!purchaseOrdersTableBody || !noPurchaseOrdersMessage) {
+                    console.warn("Elementi della tabella ordini fornitore non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Purchase Orders data received:", snapshot.docs.length, "documents."); 
+                purchaseOrdersTableBody.innerHTML = ''; // Clear existing rows
+                allPurchaseOrders = []; // Clear cache and repopulate
+                
+                if (snapshot.empty) {
+                    noPurchaseOrdersMessage.classList.remove('hidden');
+                } else {
+                    noPurchaseOrdersMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => {
+                        const order = docEntry.data();
+                        const orderId = docEntry.id;
+                        allPurchaseOrders.push({ id: orderId, ...order }); // Add to cache
+                        const row = purchaseOrdersTableBody.insertRow();
+                        const orderDateFormatted = order.orderDate ? new Date(order.orderDate).toLocaleDateString('it-IT') : 'N/D';
+                        const requestedDeliveryDateFormatted = order.requestedDeliveryDate ? new Date(order.requestedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                        const confirmedDeliveryDateFormatted = order.confirmedDeliveryDate ? new Date(order.confirmedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${orderDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${order.supplierName}</td>
+                            <td class="py-3 px-6 text-left">${order.productName} (${order.productSKU})</td>
+                            <td class="py-3 px-6 text-right">${order.orderQuantity}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.unitPrice)}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.totalPrice)}</td>
+                            <td class="py-3 px-6 text-left">${requestedDeliveryDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${confirmedDeliveryDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${order.status}</td>
+                            <td class="py-3 px-6 text-left">${order.causale || 'N/D'}</td> <!-- Display causale -->
+                            <td class="py-3 px-6 text-center">
+                                <button data-id="${orderId}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                            </td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto degli ordini fornitore:", error);
+                showAuthError("Errore nel caricamento degli ordini fornitore: " + error.message);
+            });
+        }
+
+        // --- Funzioni per la gestione degli Ordini Cliente ---
+        async function showSalesOrderModal() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare l'ordine cliente.");
+                return;
+            }
+
+            showLoading();
+            try {
+                // Populate customers dropdown
+                const customerSelect = document.getElementById('salesOrderCustomer');
+                customerSelect.innerHTML = '<option value="">Seleziona Cliente</option>';
+                allCustomers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer.id;
+                    option.textContent = customer.name;
+                    customerSelect.appendChild(option);
+                });
+
+                // Populate products dropdown
+                const productSelect = document.getElementById('salesOrderProduct');
+                productSelect.innerHTML = '<option value="">Seleziona Articolo</option>';
+                allProducts.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} (SKU: ${product.sku})`;
+                    productSelect.appendChild(option);
+                });
+
+                // Populate causale dropdown for sales orders
+                const salesOrderCausaleSelect = document.getElementById('salesOrderCausale');
+                populateCausaleDropdown(salesOrderCausaleSelect, salesOrderCausali);
+
+                // Reset form fields and set current date
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                document.getElementById('salesOrderQuantity').value = 1;
+                document.getElementById('salesOrderUnitPrice').value = 0; 
+                document.getElementById('salesOrderDate').value = todayFormatted; 
+                document.getElementById('salesRequestedDeliveryDate').value = todayFormatted;
+                document.getElementById('salesConfirmedDeliveryDate').value = todayFormatted;
+
+                newSalesOrderModal.style.display = 'flex';
+                setTimeout(() => {
+                    newSalesOrderModal.classList.add('show');
+                }, 10);
+                hideLoading();
+            }
+            catch (e) {
+                console.error("Errore nel caricamento della modale ordine cliente:", e);
+                showMessage("Errore nel caricamento della modale ordine cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function hideSalesOrderModal() {
+            newSalesOrderModal.classList.remove('show');
+            setTimeout(() => {
+                newSalesOrderModal.style.display = 'none';
+            }, 300);
+        }
+
+        async function createSalesOrder() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare l'ordine cliente.");
+                return;
+            }
+
+            const customerId = document.getElementById('salesOrderCustomer').value;
+            const productId = document.getElementById('salesOrderProduct').value;
+            const orderQuantity = parseInt(document.getElementById('salesOrderQuantity').value);
+            const unitPrice = parseFloat(document.getElementById('salesOrderUnitPrice').value);
+            const orderDate = document.getElementById('salesOrderDate').value;
+            const requestedDeliveryDate = document.getElementById('salesRequestedDeliveryDate').value;
+            const confirmedDeliveryDate = document.getElementById('salesConfirmedDeliveryDate').value;
+            const causale = document.getElementById('salesOrderCausale').value;
+
+
+            if (!customerId || !productId || isNaN(orderQuantity) || orderQuantity <= 0 || isNaN(unitPrice) || unitPrice < 0 || !orderDate || !requestedDeliveryDate || !confirmedDeliveryDate || !causale) {
+                showMessage("Per favore, compila tutti i campi dell'ordine cliente con valori validi, incluse le date di consegna e la causale.", true);
+                return;
+            }
+
+            const selectedCustomer = allCustomers.find(c => c.id === customerId);
+            const selectedProduct = allProducts.find(p => p.id === productId);
+
+            if (!selectedCustomer || !selectedProduct) {
+                showMessage("Cliente o Articolo selezionato non valido.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const salesOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/salesOrders`);
+                await addDoc(salesOrdersCol, {
+                    customerId: selectedCustomer.id,
+                    customerName: selectedCustomer.name,
+                    productId: selectedProduct.id,
+                    productName: selectedProduct.name,
+                    productSKU: selectedProduct.sku,
+                    orderQuantity: orderQuantity,
+                    unitPrice: unitPrice,
+                    totalPrice: orderQuantity * unitPrice,
+                    orderDate: orderDate,
+                    requestedDeliveryDate: requestedDeliveryDate,
+                    confirmedDeliveryDate: confirmedDeliveryDate,
+                    status: "Ordinato", // Initial status
+                    causale: causale, // Save the causale
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Ordine cliente creato con successo!");
+                hideSalesOrderModal();
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nella creazione dell'ordine cliente: ", e);
+                showMessage("Errore nella creazione dell'ordine cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function listenToSalesOrders() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto degli ordini cliente.");
+                return;
+            }
+            const salesOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/salesOrders`);
+            const q = query(salesOrdersCol, orderBy("createdAt", "desc")); 
+
+            unsubscribeSalesOrderListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const salesOrdersTableBody = document.getElementById('salesOrdersTableBody');
+                const noSalesOrdersMessage = document.getElementById('noSalesOrdersMessage');
+
+                if (!salesOrdersTableBody || !noSalesOrdersMessage) {
+                    console.warn("Elementi della tabella ordini cliente non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Sales Orders data received:", snapshot.docs.length, "documents."); 
+                salesOrdersTableBody.innerHTML = ''; // Clear existing rows
+                allSalesOrders = []; // Clear cache and repopulate
+                
+                if (snapshot.empty) {
+                    noSalesOrdersMessage.classList.remove('hidden');
+                } else {
+                    noSalesOrdersMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => {
+                        const order = docEntry.data();
+                        const orderId = docEntry.id;
+                        allSalesOrders.push({ id: orderId, ...order }); // Add to cache
+                        const row = salesOrdersTableBody.insertRow();
+                        const orderDateFormatted = order.orderDate ? new Date(order.orderDate).toLocaleDateString('it-IT') : 'N/D';
+                        const requestedDeliveryDateFormatted = order.requestedDeliveryDate ? new Date(order.requestedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                        const confirmedDeliveryDateFormatted = order.confirmedDeliveryDate ? new Date(order.confirmedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${orderDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${order.customerName}</td>
+                            <td class="py-3 px-6 text-left">${order.productName} (${order.productSKU})</td>
+                            <td class="py-3 px-6 text-right">${order.orderQuantity}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.unitPrice)}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.totalPrice)}</td>
+                            <td class="py-3 px-6 text-left">${requestedDeliveryDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${confirmedDeliveryDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${order.status}</td>
+                            <td class="py-3 px-6 text-left">${order.causale || 'N/D'}</td> <!-- Display causale -->
+                            <td class="py-3 px-6 text-center">
+                                <button data-id="${orderId}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                            </td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto degli ordini cliente:", error);
+                showAuthError("Errore nel caricamento degli ordini cliente: " + error.message);
+            });
+        }
+
+        // --- Funzioni per la gestione dei Resi Cliente ---
+        async function showCustomerReturnModal() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare il reso cliente.");
+                return;
+            }
+
+            showLoading();
+            try {
+                // Populate customers dropdown
+                const customerSelect = document.getElementById('returnCustomer');
+                customerSelect.innerHTML = '<option value="">Seleziona Cliente</option>';
+                allCustomers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer.id;
+                    option.textContent = customer.name;
+                    customerSelect.appendChild(option);
+                });
+
+                // Populate products dropdown
+                const productSelect = document.getElementById('returnProduct');
+                productSelect.innerHTML = '<option value="">Seleziona Articolo</option>';
+                allProducts.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} (SKU: ${product.sku})`;
+                    productSelect.appendChild(option);
+                });
+
+                // Populate causale dropdown for return reasons
+                const returnCausaleSelect = document.getElementById('returnCausale');
+                populateCausaleDropdown(returnCausaleSelect, customerReturnCausali);
+
+                // Populate original outgoing causale dropdown
+                const originalOutgoingCausaleSelect = document.getElementById('originalOutgoingCausale');
+                populateCausaleDropdown(originalOutgoingCausaleSelect, salesOrderCausali); // Using salesOrderCausali as original outgoing types
+
+                // Reset form fields and set current date
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                document.getElementById('returnQuantity').value = 1;
+                document.getElementById('returnUnitPrice').value = 0; 
+                document.getElementById('returnDate').value = todayFormatted; 
+
+                newCustomerReturnModal.style.display = 'flex';
+                setTimeout(() => {
+                    newCustomerReturnModal.classList.add('show');
+                }, 10);
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nel caricamento della modale reso cliente:", e);
+                showMessage("Errore nel caricamento della modale reso cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function hideCustomerReturnModal() {
+            newCustomerReturnModal.classList.remove('show');
+            setTimeout(() => {
+                newCustomerReturnModal.style.display = 'none';
+            }, 300);
+        }
+
+        async function createCustomerReturn() {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile creare il reso cliente.");
+                return;
+            }
+
+            const customerId = document.getElementById('returnCustomer').value;
+            const productId = document.getElementById('returnProduct').value;
+            const returnQuantity = parseInt(document.getElementById('returnQuantity').value);
+            const returnUnitPrice = parseFloat(document.getElementById('returnUnitPrice').value);
+            const returnDate = document.getElementById('returnDate').value;
+            const returnCausale = document.getElementById('returnCausale').value;
+            const originalOutgoingCausale = document.getElementById('originalOutgoingCausale').value;
+
+            if (!customerId || !productId || isNaN(returnQuantity) || returnQuantity <= 0 || isNaN(returnUnitPrice) || returnUnitPrice < 0 || !returnDate || !returnCausale || !originalOutgoingCausale) {
+                showMessage("Per favore, compila tutti i campi del reso cliente con valori validi, incluse le date e le causali.", true);
+                return;
+            }
+
+            const selectedCustomer = allCustomers.find(c => c.id === customerId);
+            const selectedProduct = allProducts.find(p => p.id === productId);
+
+            if (!selectedCustomer || !selectedProduct) {
+                showMessage("Cliente o Articolo selezionato non valido.", true);
+                return;
+            }
+
+            try {
+                showLoading();
+                const customerReturnsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customerReturns`);
+                await addDoc(customerReturnsCol, {
+                    customerId: selectedCustomer.id,
+                    customerName: selectedCustomer.name,
+                    productId: selectedProduct.id,
+                    productName: selectedProduct.name,
+                    productSKU: selectedProduct.sku,
+                    returnQuantity: returnQuantity,
+                    returnUnitPrice: returnUnitPrice,
+                    totalPrice: returnQuantity * returnUnitPrice,
+                    returnDate: returnDate,
+                    causale: returnCausale, // Causale del reso
+                    originalOutgoingCausale: originalOutgoingCausale, // Causale originale di uscita
+                    status: "In Attesa", // Initial status for return
+                    createdAt: serverTimestamp()
+                });
+                showMessage("Reso cliente creato con successo!");
+                hideCustomerReturnModal();
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nella creazione del reso cliente: ", e);
+                showMessage("Errore nella creazione del reso cliente: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function listenToCustomerReturns() {
+            if (!currentUserId) {
+                console.log("UserID non disponibile per l'ascolto dei resi cliente.");
+                return;
+            }
+            const customerReturnsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customerReturns`);
+            const q = query(customerReturnsCol, orderBy("createdAt", "desc")); 
+
+            unsubscribeCustomerReturnListener = onSnapshot(q, (snapshot) => {
+                // Get references to elements inside the callback to ensure they exist
+                const customerReturnsTableBody = document.getElementById('customerReturnsTableBody');
+                const noCustomerReturnsMessage = document.getElementById('noCustomerReturnsMessage');
+
+                if (!customerReturnsTableBody || !noCustomerReturnsMessage) {
+                    console.warn("Elementi della tabella resi cliente non trovati. Potrebbe essere stata cambiata la sezione.");
+                    return; // Exit if elements are not present (e.g., user switched tabs)
+                }
+
+                console.log("Customer Returns data received:", snapshot.docs.length, "documents."); 
+                customerReturnsTableBody.innerHTML = ''; // Clear existing rows
+                allCustomerReturns = []; // Clear cache and repopulate
+                
+                if (snapshot.empty) {
+                    noCustomerReturnsMessage.classList.remove('hidden');
+                } else {
+                    noCustomerReturnsMessage.classList.add('hidden');
+                    snapshot.forEach((docEntry) => {
+                        const returnItem = docEntry.data();
+                        const returnId = docEntry.id;
+                        allCustomerReturns.push({ id: returnId, ...returnItem }); // Add to cache
+                        const row = customerReturnsTableBody.insertRow();
+                        const returnDateFormatted = returnItem.returnDate ? new Date(returnItem.returnDate).toLocaleDateString('it-IT') : 'N/D';
+
+                        row.innerHTML = `
+                            <td class="py-3 px-6 text-left whitespace-nowrap">${returnDateFormatted}</td>
+                            <td class="py-3 px-6 text-left">${returnItem.customerName}</td>
+                            <td class="py-3 px-6 text-left">${returnItem.productName} (${returnItem.productSKU})</td>
+                            <td class="py-3 px-6 text-right">${returnItem.returnQuantity}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(returnItem.returnUnitPrice)}</td>
+                            <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(returnItem.totalPrice)}</td>
+                            <td class="py-3 px-6 text-left">${returnItem.causale || 'N/D'}</td>
+                            <td class="py-3 px-6 text-left">${returnItem.originalOutgoingCausale || 'N/D'}</td>
+                            <td class="py-3 px-6 text-left">${returnItem.status}</td>
+                            <td class="py-3 px-6 text-center">
+                                <button data-id="${returnId}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                            </td>
+                        `;
+                    });
+                }
+                hideLoading();
+            }, (error) => {
+                console.error("Errore nell'ascolto dei resi cliente:", error);
+                showAuthError("Errore nel caricamento dei resi cliente: " + error.message);
+            });
+        }
+
+
+        // Funzione per aggiornare la quantità di un prodotto
+        async function updateProductQuantity(productId, changeAmount) {
+            if (!currentUserId) {
+                console.error("UserID non disponibile per l'aggiornamento della quantità del prodotto.");
+                return;
+            }
+            try {
+                const productRef = doc(db, `artifacts/${appId}/users/${currentUserId}/products`, productId);
+                const productSnap = await getDoc(productRef);
+
+                if (productSnap.exists()) {
+                    const currentQuantity = productSnap.data().quantity || 0;
+                    const newQuantity = currentQuantity + changeAmount;
+
+                    await setDoc(productRef, { quantity: newQuantity, updatedAt: serverTimestamp() }, { merge: true });
+                    console.log(`Quantità articolo ${productId} aggiornata a ${newQuantity}`);
+                } else {
+                    console.warn(`Articolo con ID ${productId} non trovato per l'aggiornamento della quantità.`);
+                }
+            } catch (e) {
+                console.error(`Errore nell'aggiornamento della quantità per l'articolo ${productId}:`, e);
+            }
+        }
+
+
+        // --- Funzioni per la gestione della Modale Generica Ordine ---
+        async function editOrder(orderId, type) {
+            if (!currentUserId) {
+                showAuthError("Utente non autenticato. Impossibile modificare il movimento.");
+                return;
+            }
+            showLoading();
+            try {
+                let item;
+                const modalOrderCausaleSelect = document.getElementById('modalOrderCausale');
+                const modalOriginalOutgoingCausaleContainer = document.getElementById('originalOutgoingCausaleContainer');
+                const modalOriginalOutgoingCausaleSelect = document.getElementById('modalOriginalOutgoingCausale');
+                const requestedDeliveryDateContainer = document.getElementById('requestedDeliveryDateContainer');
+                const confirmedDeliveryDateContainer = document.getElementById('confirmedDeliveryDateContainer');
+                const statusContainer = document.getElementById('statusContainer');
+                const modalOrderStatus = document.getElementById('modalOrderStatus');
+
+                // Reset visibility of specific fields
+                modalOriginalOutgoingCausaleContainer.classList.add('hidden');
+                requestedDeliveryDateContainer.classList.remove('hidden');
+                confirmedDeliveryDateContainer.classList.remove('hidden');
+                statusContainer.classList.remove('hidden');
+
+                // Clear previous options from status dropdown
+                modalOrderStatus.innerHTML = '';
+
+                // Determine the correct collection name and populate dropdowns
+                let collectionName;
+                if (type === 'purchase') {
+                    item = allPurchaseOrders.find(o => o.id === orderId);
+                    document.getElementById('modalOrderTypeDisplay').textContent = 'Ordine Fornitore';
+                    populateCausaleDropdown(modalOrderCausaleSelect, purchaseOrderCausali, item.causale);
+                    collectionName = 'purchaseOrders';
+                    // Populate status options for purchase orders
+                    ['Ordinato', 'Evaso Parzialmente', 'Evaso Totalmente', 'Annullato', 'Ricevuto'].forEach(status => {
+                        const option = document.createElement('option');
+                        option.value = status;
+                        option.textContent = status;
+                        modalOrderStatus.appendChild(option);
+                    });
+                } else if (type === 'sales') {
+                    item = allSalesOrders.find(o => o.id === orderId);
+                    document.getElementById('modalOrderTypeDisplay').textContent = 'Ordine Cliente';
+                    populateCausaleDropdown(modalOrderCausaleSelect, salesOrderCausali, item.causale);
+                    collectionName = 'salesOrders';
+                    // Populate status options for sales orders
+                    ['Ordinato', 'Evaso Parzialmente', 'Evaso Totalmente', 'Annullato'].forEach(status => {
+                        const option = document.createElement('option');
+                        option.value = status;
+                        option.textContent = status;
+                        modalOrderStatus.appendChild(option);
+                    });
+                } else if (type === 'customerReturns') {
+                    item = allCustomerReturns.find(r => r.id === orderId);
+                    document.getElementById('modalOrderTypeDisplay').textContent = 'Reso Cliente';
+                    populateCausaleDropdown(modalOrderCausaleSelect, customerReturnCausali, item.causale);
+                    collectionName = 'customerReturns';
+                    
+                    // Show original outgoing causale for returns
+                    modalOriginalOutgoingCausaleContainer.classList.remove('hidden');
+                    populateCausaleDropdown(modalOriginalOutgoingCausaleSelect, salesOrderCausali, item.originalOutgoingCausale);
+
+                    // Hide delivery dates for returns
+                    requestedDeliveryDateContainer.classList.add('hidden');
+                    confirmedDeliveryDateContainer.classList.add('hidden');
+
+                    // Populate status options for customer returns
+                    ['In Attesa', 'Ricevuto', 'Rifiutato', 'Annullato'].forEach(status => {
+                        const option = document.createElement('option');
+                        option.value = status;
+                        option.textContent = status;
+                        modalOrderStatus.appendChild(option);
+                    });
+                }
+
+                // Fetch the actual document from Firestore to ensure we have the latest data
+                const orderRef = doc(db, `artifacts/${appId}/users/${currentUserId}/${collectionName}`, orderId);
+                const orderSnap = await getDoc(orderRef);
+                
+                if (orderSnap.exists()) {
+                    item = orderSnap.data(); // Use the fresh data from Firestore
+                    console.log("Dati movimento caricati per modifica:", item); // Debug log
+
+                    document.getElementById('modalOrderId').value = orderId;
+                    document.getElementById('modalOrderType').value = type;
+                    document.getElementById('modalOrderCustomerSupplier').textContent = type === 'purchase' ? item.supplierName : item.customerName;
+                    document.getElementById('modalOrderProduct').textContent = `${item.productName} (SKU: ${item.productSKU})`;
+                    document.getElementById('modalOrderQuantity').textContent = type === 'customerReturns' ? item.returnQuantity : item.orderQuantity;
+                    document.getElementById('modalOrderUnitPrice').textContent = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(type === 'customerReturns' ? item.returnUnitPrice : item.unitPrice);
+                    document.getElementById('modalOrderDate').textContent = (type === 'customerReturns' ? item.returnDate : item.orderDate) ? new Date(type === 'customerReturns' ? item.returnDate : item.orderDate).toLocaleDateString('it-IT') : 'N/D';
+                    
+                    if (type !== 'customerReturns') {
+                        document.getElementById('modalOrderRequestedDeliveryDate').value = item.requestedDeliveryDate || '';
+                        document.getElementById('modalOrderConfirmedDeliveryDate').value = item.confirmedDeliveryDate || '';
+                    }
+
+                    document.getElementById('modalOrderStatus').value = item.status;
+                    
+                    // Set the causale dropdown value
+                    modalOrderCausaleSelect.value = item.causale || '';
+
+                    editingOrderId = orderId;
+                    editingOrderType = type;
+                    
+                    editOrderGenericModal.style.display = 'flex'; 
+                    setTimeout(() => {
+                        editOrderGenericModal.classList.add('show'); 
+                    }, 10); 
+                    
+                    hideLoading();
+                } else {
+                    showMessage("Movimento non trovato per la modifica.", true);
+                    hideLoading();
+                }
+            } catch (e) {
+                console.error("Errore nel caricamento del movimento per la modifica: ", e);
+                showMessage("Errore nel caricamento del movimento: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        async function saveEditedOrder() {
+            if (!currentUserId || !editingOrderId || !editingOrderType) {
+                showAuthError("Utente non autenticato o movimento non valido per il salvataggio.");
+                return;
+            }
+
+            showLoading();
+            try {
+                let collectionName;
+                if (editingOrderType === 'purchase') {
+                    collectionName = 'purchaseOrders';
+                } else if (editingOrderType === 'sales') {
+                    collectionName = 'salesOrders';
+                } else if (editingOrderType === 'customerReturns') {
+                    collectionName = 'customerReturns';
+                } else {
+                    showMessage("Tipo di movimento non valido.", true);
+                    hideLoading();
+                    return;
+                }
+
+                const collectionPath = `artifacts/${appId}/users/${currentUserId}/${collectionName}`;
+                const orderRef = doc(db, collectionPath, editingOrderId);
+                const oldOrderSnap = await getDoc(orderRef);
+                const oldOrderData = oldOrderSnap.exists() ? oldOrderSnap.data() : null;
+
+                if (!oldOrderData) {
+                    showMessage("Dati del movimento originale non trovati. Impossibile aggiornare.", true);
+                    hideLoading();
+                    return;
+                }
+                console.log("Dati movimento originali:", oldOrderData); // Debug log
+
+                const newStatus = document.getElementById('modalOrderStatus').value;
+                const newCausale = document.getElementById('modalOrderCausale').value;
+                let updateData = {
+                    status: newStatus,
+                    causale: newCausale,
+                    updatedAt: serverTimestamp()
+                };
+
+                // Conditionally add delivery dates and original outgoing causale based on type
+                if (editingOrderType === 'customerReturns') {
+                    updateData.originalOutgoingCausale = document.getElementById('modalOriginalOutgoingCausale').value;
+                } else {
+                    updateData.requestedDeliveryDate = document.getElementById('modalOrderRequestedDeliveryDate').value;
+                    updateData.confirmedDeliveryDate = document.getElementById('modalOrderConfirmedDeliveryDate').value;
+                }
+
+                if (!newStatus || !newCausale || (editingOrderType === 'customerReturns' && !updateData.originalOutgoingCausale) || (editingOrderType !== 'customerReturns' && (!updateData.requestedDeliveryDate || !updateData.confirmedDeliveryDate))) {
+                    showMessage("Per favore, compila tutti i campi obbligatori.", true);
+                    hideLoading();
+                    return;
+                }
+
+                // --- Logica di aggiornamento della quantità in magazzino ---
+                const oldStatus = oldOrderData.status;
+                const productId = oldOrderData.productId;
+                let quantityChange = 0;
+
+                if (editingOrderType === 'purchase') {
+                    const orderQuantity = oldOrderData.orderQuantity;
+                    // Se lo stato precedente NON era 'Ricevuto' e il nuovo stato È 'Ricevuto'
+                    if (oldStatus !== 'Ricevuto' && newStatus === 'Ricevuto') {
+                        quantityChange = orderQuantity;
+                    } 
+                    // Se lo stato precedente ERA 'Ricevuto' e il nuovo stato NON È 'Ricevuto' (reversione)
+                    else if (oldStatus === 'Ricevuto' && newStatus !== 'Ricevuto') {
+                        quantityChange = -orderQuantity;
+                    }
+                } else if (editingOrderType === 'sales') {
+                    const orderQuantity = oldOrderData.orderQuantity;
+                    // Se lo stato precedente NON era 'Evaso Totalmente' e il nuovo stato È 'Evaso Totalmente'
+                    if (oldStatus !== 'Evaso Totalmente' && newStatus === 'Evaso Totalmente') {
+                        quantityChange = -orderQuantity; // Diminuisce la quantità
+                    }
+                    // Se lo stato precedente ERA 'Evaso Totalmente' e il nuovo stato NON È 'Evaso Totalmente' (reversione)
+                    else if (oldStatus === 'Evaso Totalmente' && newStatus !== 'Evaso Totalmente') {
+                        quantityChange = orderQuantity; // Aumenta la quantità (reversione)
+                    }
+                } else if (editingOrderType === 'customerReturns') {
+                    const returnQuantity = oldOrderData.returnQuantity;
+                    // Se lo stato precedente NON era 'Ricevuto' e il nuovo stato È 'Ricevuto'
+                    if (oldStatus !== 'Ricevuto' && newStatus === 'Ricevuto') {
+                        quantityChange = returnQuantity; // Aumenta la quantità
+                    }
+                    // Se lo stato precedente ERA 'Ricevuto' e il nuovo stato NON È 'Ricevuto' (reversione)
+                    else if (oldStatus === 'Ricevuto' && newStatus !== 'Ricevuto') {
+                        quantityChange = -returnQuantity; // Diminuisce la quantità (reversione)
+                    }
+                }
+
+                // Esegui l'aggiornamento della quantità solo se c'è un cambiamento
+                if (quantityChange !== 0 && productId) {
+                    await updateProductQuantity(productId, quantityChange);
+                }
+                // --- Fine logica di aggiornamento della quantità ---
+
+                await setDoc(orderRef, updateData, { merge: true });
+
+                showMessage("Movimento aggiornato con successo!");
+                hideOrderGenericModal();
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nel salvataggio del movimento: ", e);
+                showMessage("Errore nel salvataggio del movimento: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        function hideOrderGenericModal() {
+            editOrderGenericModal.classList.remove('show');
+            setTimeout(() => {
+                editOrderGenericModal.style.display = 'none';
+            }, 300); 
+            // Clear fields and reset editing state
+            document.getElementById('modalOrderId').value = '';
+            document.getElementById('modalOrderType').value = '';
+            document.getElementById('modalOrderTypeDisplay').textContent = '';
+            document.getElementById('modalOrderCustomerSupplier').textContent = '';
+            document.getElementById('modalOrderProduct').textContent = '';
+            document.getElementById('modalOrderQuantity').textContent = '';
+            document.getElementById('modalOrderUnitPrice').textContent = '';
+            document.getElementById('modalOrderDate').textContent = '';
+            document.getElementById('modalOrderRequestedDeliveryDate').value = '';
+            document.getElementById('modalOrderConfirmedDeliveryDate').value = '';
+            document.getElementById('modalOrderStatus').value = 'Ordinato'; // Reset to default
+            document.getElementById('modalOrderCausale').innerHTML = ''; // Clear causale options
+            document.getElementById('modalOriginalOutgoingCausale').innerHTML = ''; // Clear original causale options
+            document.getElementById('originalOutgoingCausaleContainer').classList.add('hidden'); // Hide it again
+
+            editingOrderId = null;
+            editingOrderType = null;
+        }
+
+        // --- Funzioni per la gestione della Gestione Ordini ---
+        function setupOrderManagementListeners() {
+            document.getElementById('filterAllOrdersBtn').addEventListener('click', () => filterAndDisplayOrders('all'));
+            document.getElementById('filterInProgressOrdersBtn').addEventListener('click', () => filterAndDisplayOrders('in_progress'));
+            document.getElementById('filterFulfilledOrdersBtn').addEventListener('click', () => filterAndDisplayOrders('fulfilled'));
+            document.getElementById('filterCancelledOrdersBtn').addEventListener('click', () => filterAndDisplayOrders('cancelled'));
+
+            // Event delegation for edit buttons on the filtered orders tables
+            document.getElementById('filteredPurchaseOrdersTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'purchase');
+                }
+            });
+            document.getElementById('filteredSalesOrdersTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'sales');
+                }
+            });
+            document.getElementById('filteredCustomerReturnsTableBody').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-order-btn')) {
+                    editOrder(e.target.dataset.id, 'customerReturns');
+                }
+            });
+        }
+
+        function filterAndDisplayOrders(filterType) {
+            // Update active button styling
+            // Ensure the container exists before querying its children
+            const orderFilterButtonsContainer = document.getElementById('orderFilterButtonsContainer');
+            if (orderFilterButtonsContainer) {
+                orderFilterButtonsContainer.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+            }
+            
+            const activeButton = document.getElementById(`filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}OrdersBtn`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+
+
+            const filteredPurchaseOrdersTableBody = document.getElementById('filteredPurchaseOrdersTableBody');
+            const noFilteredPurchaseOrdersMessage = document.getElementById('noFilteredPurchaseOrdersMessage');
+            const filteredSalesOrdersTableBody = document.getElementById('filteredSalesOrdersTableBody');
+            const noFilteredSalesOrdersMessage = document.getElementById('noFilteredSalesOrdersMessage');
+            const filteredCustomerReturnsTableBody = document.getElementById('filteredCustomerReturnsTableBody');
+            const noFilteredCustomerReturnsMessage = document.getElementById('noFilteredCustomerReturnsMessage');
+
+
+            filteredPurchaseOrdersTableBody.innerHTML = '';
+            filteredSalesOrdersTableBody.innerHTML = '';
+            filteredCustomerReturnsTableBody.innerHTML = '';
+
+            let filteredPurchase = [];
+            let filteredSales = [];
+            let filteredReturns = [];
+
+            if (filterType === 'all') {
+                filteredPurchase = allPurchaseOrders;
+                filteredSales = allSalesOrders;
+                filteredReturns = allCustomerReturns;
+            } else if (filterType === 'in_progress') {
+                filteredPurchase = allPurchaseOrders.filter(order => order.status === 'Ordinato' || order.status === 'Evaso Parzialmente');
+                filteredSales = allSalesOrders.filter(order => order.status === 'Ordinato' || order.status === 'Evaso Parzialmente');
+                filteredReturns = allCustomerReturns.filter(returnItem => returnItem.status === 'In Attesa');
+            } else if (filterType === 'fulfilled') {
+                filteredPurchase = allPurchaseOrders.filter(order => order.status === 'Evaso Totalmente' || order.status === 'Ricevuto'); // Added 'Ricevuto' for purchase
+                filteredSales = allSalesOrders.filter(order => order.status === 'Evaso Totalmente');
+                filteredReturns = allCustomerReturns.filter(returnItem => returnItem.status === 'Ricevuto');
+            } else if (filterType === 'cancelled') {
+                filteredPurchase = allPurchaseOrders.filter(order => order.status === 'Annullato');
+                filteredSales = allSalesOrders.filter(order => order.status === 'Annullato');
+                filteredReturns = allCustomerReturns.filter(returnItem => returnItem.status === 'Annullato' || returnItem.status === 'Rifiutato');
+            }
+
+            // Render filtered purchase orders
+            if (filteredPurchase.length === 0) {
+                noFilteredPurchaseOrdersMessage.classList.remove('hidden');
+            } else {
+                noFilteredPurchaseOrdersMessage.classList.add('hidden');
+                filteredPurchase.forEach(order => {
+                    const row = filteredPurchaseOrdersTableBody.insertRow();
+                    const orderDateFormatted = order.orderDate ? new Date(order.orderDate).toLocaleDateString('it-IT') : 'N/D';
+                    const requestedDeliveryDateFormatted = order.requestedDeliveryDate ? new Date(order.requestedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                    const confirmedDeliveryDateFormatted = order.confirmedDeliveryDate ? new Date(order.confirmedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                    row.innerHTML = `
+                        <td class="py-3 px-6 text-left whitespace-nowrap">${orderDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${order.supplierName}</td>
+                        <td class="py-3 px-6 text-left">${order.productName} (${order.productSKU})</td>
+                        <td class="py-3 px-6 text-right">${order.orderQuantity}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.unitPrice)}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.totalPrice)}</td>
+                        <td class="py-3 px-6 text-left">${requestedDeliveryDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${confirmedDeliveryDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${order.status}</td>
+                        <td class="py-3 px-6 text-left">${order.causale || 'N/D'}</td> <!-- Display causale -->
+                        <td class="py-3 px-6 text-center">
+                            <button data-id="${order.id}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                        </td>
+                    `;
+                });
+            }
+
+            // Render filtered sales orders
+            if (filteredSales.length === 0) {
+                noFilteredSalesOrdersMessage.classList.remove('hidden');
+            } else {
+                noFilteredSalesOrdersMessage.classList.add('hidden');
+                filteredSales.forEach(order => {
+                    const row = filteredSalesOrdersTableBody.insertRow();
+                    const orderDateFormatted = order.orderDate ? new Date(order.orderDate).toLocaleDateString('it-IT') : 'N/D';
+                    const requestedDeliveryDateFormatted = order.requestedDeliveryDate ? new Date(order.requestedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                    const confirmedDeliveryDateFormatted = order.confirmedDeliveryDate ? new Date(order.confirmedDeliveryDate).toLocaleDateString('it-IT') : 'N/D';
+                    row.innerHTML = `
+                        <td class="py-3 px-6 text-left whitespace-nowrap">${orderDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${order.customerName}</td>
+                        <td class="py-3 px-6 text-left">${order.productName} (${order.productSKU})</td>
+                        <td class="py-3 px-6 text-right">${order.orderQuantity}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.unitPrice)}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(order.totalPrice)}</td>
+                        <td class="py-3 px-6 text-left">${requestedDeliveryDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${confirmedDeliveryDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${order.status}</td>
+                        <td class="py-3 px-6 text-left">${order.causale || 'N/D'}</td> <!-- Display causale -->
+                        <td class="py-3 px-6 text-center">
+                            <button data-id="${order.id}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                        </td>
+                    `;
+                });
+            }
+
+            // Render filtered customer returns
+            if (filteredReturns.length === 0) {
+                noFilteredCustomerReturnsMessage.classList.remove('hidden');
+            } else {
+                noFilteredCustomerReturnsMessage.classList.add('hidden');
+                filteredReturns.forEach(returnItem => {
+                    const row = filteredCustomerReturnsTableBody.insertRow();
+                    const returnDateFormatted = returnItem.returnDate ? new Date(returnItem.returnDate).toLocaleDateString('it-IT') : 'N/D';
+                    row.innerHTML = `
+                        <td class="py-3 px-6 text-left whitespace-nowrap">${returnDateFormatted}</td>
+                        <td class="py-3 px-6 text-left">${returnItem.customerName}</td>
+                        <td class="py-3 px-6 text-left">${returnItem.productName} (${returnItem.productSKU})</td>
+                        <td class="py-3 px-6 text-right">${returnItem.returnQuantity}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(returnItem.returnUnitPrice)}</td>
+                        <td class="py-3 px-6 text-right">${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(returnItem.totalPrice)}</td>
+                        <td class="py-3 px-6 text-left">${returnItem.causale || 'N/D'}</td>
+                        <td class="py-3 px-6 text-left">${returnItem.originalOutgoingCausale || 'N/D'}</td>
+                        <td class="py-3 px-6 text-left">${returnItem.status}</td>
+                        <td class="py-3 px-6 text-center">
+                            <button data-id="${returnItem.id}" class="edit-order-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-xs">Modifica</button>
+                        </td>
+                    `;
+                });
+            }
+        }
+
+
+        // --- Funzioni per la gestione della tab Dati (Import/Export) ---
+        async function setupDataListeners() {
+            document.getElementById('exportDataBtn').addEventListener('click', exportAllData);
+            
+            // Get a fresh reference to the elements when the section is rendered
+            const importFileInput = document.getElementById('importFileInput');
+            const triggerImportBtn = document.getElementById('triggerImportBtn');
+            const importDataStatusMessage = document.getElementById('importDataStatusMessage');
+
+
+            if (importFileInput && triggerImportBtn && importDataStatusMessage) {
+                importFileInput.addEventListener('change', () => {
+                    if (importFileInput.files.length > 0) {
+                        triggerImportBtn.disabled = false;
+                        importDataStatusMessage.textContent = `File selezionato: ${importFileInput.files[0].name}`;
+                    } else {
+                        triggerImportBtn.disabled = true;
+                        importDataStatusMessage.textContent = '';
+                    }
+                });
+
+                triggerImportBtn.addEventListener('click', importAllData);
+            } else {
+                console.error("Elementi per l'importazione/esportazione non trovati nel DOM.");
+            }
+        }
+
+        async function exportAllData() {
+            if (!currentUserId) {
+                showMessage("Utente non autenticato. Impossibile esportare i dati.", true);
+                return;
+            }
+
+            showLoading();
+            try {
+                const dataToExport = {};
+
+                // Fetch Products
+                const productsSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/products`));
+                dataToExport.products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Fetch Customers
+                const customersSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/customers`));
+                dataToExport.customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Fetch Suppliers
+                const suppliersSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/suppliers`));
+                dataToExport.suppliers = suppliersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Fetch Purchase Orders
+                const purchaseOrdersSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/purchaseOrders`));
+                dataToExport.purchaseOrders = purchaseOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Fetch Sales Orders
+                const salesOrdersSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/salesOrders`));
+                dataToExport.salesOrders = salesOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Fetch Customer Returns (New)
+                const customerReturnsSnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${currentUserId}/customerReturns`));
+                dataToExport.customerReturns = customerReturnsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+
+                const jsonString = JSON.stringify(dataToExport, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nestis_magazzino_backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showMessage("Dati esportati con successo!");
+                hideLoading();
+            } catch (e) {
+                console.error("Errore nell'esportazione dei dati:", e);
+                showMessage("Errore nell'esportazione dei dati: " + e.message, true);
+                hideLoading();
+            }
+        }
+
+        async function importAllData() {
+            if (!currentUserId) {
+                showMessage("Utente non autenticato. Impossibile importare i dati.", true);
+                return;
+            }
+
+            // Get a fresh reference to the elements within this function
+            const importFileInput = document.getElementById('importFileInput');
+            const triggerImportBtn = document.getElementById('triggerImportBtn');
+            const importDataStatusMessage = document.getElementById('importDataStatusMessage');
+
+            if (importFileInput.files.length === 0) {
+                showMessage("Per favore, seleziona un file JSON da importare.", true);
+                return;
+            }
+
+            const file = importFileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                showLoading();
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    let importedCount = 0;
+                    let skippedCount = 0;
+
+                    // Import Products
+                    if (importedData.products && Array.isArray(importedData.products)) {
+                        const productsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/products`);
+                        const existingProductsSnapshot = await getDocs(productsCol);
+                        const existingSKUs = new Set(existingProductsSnapshot.docs.map(doc => doc.data().sku));
+
+                        for (const product of importedData.products) {
+                            if (!existingSKUs.has(product.sku)) {
+                                const { id, ...data } = product; // Remove 'id' if present, Firestore generates its own
+                                await addDoc(productsCol, { ...data, createdAt: serverTimestamp() });
+                                importedCount++;
+                            } else {
+                                skippedCount++;
+                            }
+                        }
+                    }
+
+                    // Import Customers
+                    if (importedData.customers && Array.isArray(importedData.customers)) {
+                        const customersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customers`);
+                        for (const customer of importedData.customers) {
+                            const { id, ...data } = customer;
+                            await addDoc(customersCol, { ...data, createdAt: serverTimestamp() });
+                            importedCount++;
+                        }
+                    }
+
+                    // Import Suppliers
+                    if (importedData.suppliers && Array.isArray(importedData.suppliers)) {
+                        const suppliersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/suppliers`);
+                        for (const supplier of importedData.suppliers) {
+                            const { id, ...data } = supplier;
+                            await addDoc(suppliersCol, { ...data, createdAt: serverTimestamp() });
+                            importedCount++;
+                        }
+                    }
+
+                    // Import Purchase Orders
+                    if (importedData.purchaseOrders && Array.isArray(importedData.purchaseOrders)) {
+                        const purchaseOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/purchaseOrders`);
+                        for (const order of importedData.purchaseOrders) {
+                            const { id, ...data } = order;
+                            await addDoc(purchaseOrdersCol, { ...data, createdAt: serverTimestamp() });
+                            importedCount++;
+                        }
+                    }
+
+                    // Import Sales Orders
+                    if (importedData.salesOrders && Array.isArray(importedData.salesOrders)) {
+                        const salesOrdersCol = collection(db, `artifacts/${appId}/users/${currentUserId}/salesOrders`);
+                        for (const order of importedData.salesOrders) {
+                            const { id, ...data } = order;
+                            await addDoc(salesOrdersCol, { ...data, createdAt: serverTimestamp() });
+                            importedCount++;
+                        }
+                    }
+
+                    // Import Customer Returns (New)
+                    if (importedData.customerReturns && Array.isArray(importedData.customerReturns)) {
+                        const customerReturnsCol = collection(db, `artifacts/${appId}/users/${currentUserId}/customerReturns`);
+                        for (const returnItem of importedData.customerReturns) {
+                            const { id, ...data } = returnItem;
+                            await addDoc(customerReturnsCol, { ...data, createdAt: serverTimestamp() });
+                            importedCount++;
+                        }
+                    }
+
+                    importDataStatusMessage.textContent = `Importazione completata: ${importedCount} documenti aggiunti, ${skippedCount} articoli duplicati saltati.`;
+                    showMessage(`Importazione completata: ${importedCount} documenti aggiunti, ${skippedCount} articoli duplicati saltati.`);
+                    hideLoading();
+                    // Reload current tab to reflect new data
+                    const activeTab = document.querySelector('.tab-button.active');
+                    if (activeTab) {
+                        loadTab(activeTab.id.replace('tab', '').toLowerCase());
+                    }
+
+                } catch (error) {
+                    console.error("Errore nell'importazione del file JSON:", error);
+                    importDataStatusMessage.textContent = `Errore nell'importazione: ${error.message}`;
+                    showMessage(`Errore nell'importazione: ${error.message}`, true);
+                    hideLoading();
+                } finally {
+                    importFileInput.value = ''; // Clear the file input
+                    triggerImportBtn.disabled = true;
+                }
+            };
+
+            reader.onerror = () => {
+                const errorMessage = "Errore nella lettura del file.";
+                console.error(errorMessage);
+                importDataStatusMessage.textContent = errorMessage;
+                showMessage(errorMessage, true);
+                hideLoading();
+            };
+
+            reader.readAsText(file);
+        }
+
+
+        // Event listeners per i bottoni delle tab
+        document.getElementById('tabProducts').addEventListener('click', () => loadTab('products'));
+        document.getElementById('tabCustomers').addEventListener('click', () => loadTab('customers'));
+        document.getElementById('tabSuppliers').addEventListener('click', () => loadTab('suppliers'));
+        document.getElementById('tabMovements').addEventListener('click', () => loadTab('movements'));
+        document.getElementById('tabOrderManagement').addEventListener('click', () => loadTab('orderManagement')); // New tab listener
+        document.getElementById('tabData').addEventListener('click', () => loadTab('data')); 
+        // document.getElementById('tabStatistics').addEventListener('click', () => loadTab('statistics'));
+
+        // Carica la tab predefinita all'avvio (dopo l'autenticazione)
+        // La chiamata a loadTab('products') è già gestita all'interno di onAuthStateChanged
+    </script>
+</body>
+</html>
